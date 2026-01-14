@@ -3,90 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web音频工坊 V8 - 紧凑经典版</title>
-    <!-- 引入 lamejs 用于 MP3 编码 -->
+    <title>Web音频工坊 V12 - 实时交互版</title>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
-        :root { --primary: #2980b9; --bg: #f5f6fa; --card: #ffffff; --text: #2c3e50; --success: #27ae60; --border: #dcdde1; }
+        :root { --primary: #2980b9; --accent: #e74c3c; --start: #27ae60; --end: #c0392b; --bg: #f5f6fa; --card: #ffffff; --text: #2c3e50; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; margin: 0; min-height: 100vh; box-sizing: border-box; }
         
-        /* 容器更加紧凑 */
-        .container { width: 100%; max-width: 800px; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 15px; }
+        .container { width: 100%; max-width: 850px; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 12px; }
         
-        /* 标题行 */
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin: 0; }
-        h1 { margin: 0; font-size: 1.2rem; color: var(--primary); }
-        .btn-reset { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-        .btn-reset:hover { background: #bdc3c7; color: #fff; }
+        h1 { margin: 0; font-size: 1.3rem; color: var(--primary); }
+        .btn-reset { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition:0.2s; }
+        .btn-reset:hover { background: #bdc3c7; color: white; }
 
-        /* --- 修改点1: 上传区域改为横向紧凑布局 --- */
-        .upload-box { 
-            border: 2px dashed #bdc3c7; 
-            padding: 12px; /* 减小内边距 */
-            border-radius: 8px; 
-            background: #fdfdfd; 
-            cursor: pointer; 
-            transition: 0.2s; 
-            display: flex; /*以此实现横向排列*/
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
-            min-height: 50px;
-        }
-        .upload-box:hover { border-color: var(--primary); background: #eaf2f8; }
-        .upload-icon { font-size: 1.5rem; } /* 图标变小 */
-        .upload-text h3 { margin: 0; font-size: 1rem; color: #34495e; }
-        .upload-text p { margin: 0; font-size: 0.8rem; color: #7f8c8d; }
+        .upload-box { border: 2px dashed #bdc3c7; padding: 10px; border-radius: 8px; background: #fcfcfc; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 15px; min-height: 45px; }
+        .upload-box:hover { border-color: var(--primary); background: #ebf5fb; }
+        .upload-icon { font-size: 1.4rem; }
+        .upload-text h3 { margin: 0; font-size: 0.95rem; color: #34495e; }
+        .upload-text p { margin: 0; font-size: 0.75rem; color: #7f8c8d; }
 
-        /* 信息条 */
-        .info-bar { display: flex; flex-wrap: wrap; gap: 10px; background: #ecf0f1; padding: 8px 12px; border-radius: 6px; font-size: 0.85em; color: #7f8c8d; border-left: 4px solid var(--primary); }
-        .info-item b { color: #2c3e50; }
-        .info-tag { background: #fff; padding: 1px 5px; border-radius: 3px; font-weight: bold; color: var(--primary); }
+        .info-bar { display: flex; flex-wrap: wrap; gap: 15px; background: #ecf0f1; padding: 8px 12px; border-radius: 6px; font-size: 0.85em; color: #7f8c8d; border-left: 4px solid var(--primary); align-items: center; }
+        .info-item b { color: #2c3e50; margin-right: 4px; }
+        .tag { background: #fff; padding: 1px 6px; border-radius: 4px; font-weight: bold; color: var(--primary); font-size: 0.8em; }
 
-        /* --- 修改点2: 波形图回归经典 --- */
-        canvas { 
+        /* 波形图容器 */
+        .vis-container { 
+            position: relative; 
             width: 100%; 
-            height: 100px; /* 高度适中 */
-            background: #f0f3f5; /* 经典的浅灰色背景 */
+            height: 120px; 
+            background: #f0f3f5; 
+            border: 1px solid #bdc3c7; 
             border-radius: 4px; 
-            border: 1px solid #bdc3c7;
-            display: block;
+            overflow: hidden; 
+            cursor: pointer; 
+            user-select: none;
         }
+        .vis-container:hover { border-color: var(--primary); }
+        
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        /* 播放头 */
+        .play-head { position: absolute; top:0; left:0; width: 2px; height: 100%; background: var(--accent); pointer-events: none; display: none; z-index: 10; box-shadow: 0 0 5px rgba(231, 76, 60, 0.8); }
 
-        /* 控件区域 */
-        .control-group { display: flex; flex-direction: column; gap: 8px; }
+        .tips { font-size: 0.8em; color: #7f8c8d; text-align: center; background: #fafafa; padding: 5px; border-radius: 4px; border: 1px dashed #eee; }
+        .tips b { color: #2c3e50; }
+
+        .control-group { display: flex; flex-direction: column; gap: 10px; }
         .row { display: flex; align-items: center; gap: 10px; }
-        .label { width: 80px; font-weight: 600; font-size: 0.9em; flex-shrink: 0; color: #34495e; }
+        .label { width: 70px; font-weight: 700; font-size: 0.9em; flex-shrink: 0; color: #34495e; }
         
-        input[type=range] { flex: 1; height: 4px; border-radius: 2px; background: #bdc3c7; -webkit-appearance: none; outline: none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--primary); cursor: pointer; transition: 0.2s; }
-        
-        .val-badge { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; min-width: 40px; text-align: center; }
+        /* 剪切面板 */
+        .cut-panel { background: #f4f6f7; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 8px; }
+        .cut-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .time-input { width: 65px; padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px; text-align: center; font-family: monospace; font-weight: bold; color: var(--primary); }
+        .btn-preview { background: #34495e; color: white; border:none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em; width: 100%; }
+        .btn-preview:hover { background: #2c3e50; }
 
-        /* 按钮 */
-        .btn { border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: 600; transition: 0.2s; }
-        .btn-play { background: var(--primary); color: white; }
-        .btn-stop { background: #95a5a6; color: white; }
-        
-        /* 导出设置框 */
-        .export-panel { background: #fdfdfd; border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-top: 5px; }
-        .export-title { margin: 0 0 10px 0; color: #2c3e50; font-size: 1em; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
-        
-        .setting-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
-        .setting-item label { display: block; font-size: 0.8em; color: #7f8c8d; margin-bottom: 4px; }
+        /* 自动分段 */
+        .split-panel { background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; margin-top: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .input-mini { width: 50px; padding: 5px; border: 1px solid #ffe082; border-radius: 4px; text-align: center; }
+        .btn-split { background: #f39c12; color: white; border: none; padding: 6px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
+
+        input[type=range] { flex: 1; height: 6px; border-radius: 3px; background: #bdc3c7; -webkit-appearance: none; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; transition: 0.1s; }
+        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        .val-badge { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; min-width: 35px; text-align: center; }
+
+        .export-panel { border-top: 1px dashed #ccc; padding-top: 15px; margin-top: 5px; }
+        .setting-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .setting-item label { display: block; font-size: 0.75em; color: #95a5a6; margin-bottom: 3px; }
         select { width: 100%; padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 0.85em; background: white; }
-
-        /* 自动配置 */
-        .auto-tool { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #eee; font-size: 0.85em; }
-        .input-mini { width: 50px; padding: 4px; border: 1px solid #bdc3c7; border-radius: 4px; text-align: center; }
-        .btn-auto { background: #27ae60; color: white; padding: 4px 10px; border-radius: 4px; border:none; cursor: pointer; font-size: 0.85em;}
         
-        .btn-dl { width: 100%; padding: 12px; background: var(--success); color: white; font-size: 1rem; border-radius: 6px; margin-top: 15px; border: none; cursor: pointer; font-weight: bold; }
-        .btn-dl:hover { background: #219150; }
+        .btn-dl { width: 100%; padding: 12px; background: var(--success); color: white; font-size: 1.1rem; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #219150; transition: 0.1s; }
+        .btn-dl:active { transform: translateY(4px); box-shadow: none; }
 
         .hidden { display: none !important; }
-        
-        #loader { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.9); z-index: 999; flex-direction: column; justify-content: center; align-items: center; }
+        #loader { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.95); z-index: 999; flex-direction: column; justify-content: center; align-items: center; }
         .spinner { width: 30px; height: 30px; border: 3px solid #eee; border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
@@ -95,130 +87,134 @@
 
 <div class="container">
     <div class="header">
-        <h1>🎧 Web 音频工坊 V8</h1>
+        <h1>🎧 Web 音频工坊 V12</h1>
         <button class="btn-reset" onclick="resetParams()">↺ 重置参数</button>
     </div>
 
     <div id="loader">
         <div class="spinner"></div>
-        <div style="margin-top:10px; color:#666; font-size:0.9em;" id="loaderText">处理中...</div>
+        <div style="margin-top:10px; color:#555; font-size:0.9em;" id="loaderText">处理中...</div>
     </div>
 
-    <!-- 1. 紧凑型上传区 -->
     <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <div class="upload-icon">📂</div>
+        <div class="upload-icon">👆</div>
         <div class="upload-text">
-            <h3>点击选择音频文件</h3>
-            <p>支持 M4A, MP3, WAV, FLAC</p>
+            <h3>点击上传音频文件</h3>
+            <p>支持 MP3, M4A, WAV, FLAC</p>
         </div>
         <input type="file" id="fileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac" style="display:none">
     </div>
 
     <div id="workspace" class="hidden">
-        <!-- 2. 信息条 -->
         <div class="info-bar">
             <div class="info-item"><b>文件:</b> <span id="mName">-</span></div>
-            <div class="info-item"><b>大小:</b> <span id="mSize">-</span></div>
             <div class="info-item"><b>时长:</b> <span id="mDur">-</span></div>
-            <div class="info-item"><b>参数:</b> <span id="mParams">-</span></div>
-            <div class="info-tag" id="mBitrate">- kbps</div>
+            <div class="info-item"><b>格式:</b> <span id="mParams">-</span></div>
+            <div class="tag" id="mBitrate">- kbps</div>
         </div>
 
-        <!-- 3. 经典波形图 -->
-        <canvas id="visualizer"></canvas>
+        <div class="tips">
+            🖱️ <b>单击</b>波形：立即从点击处播放 | 🖱️🖱️ <b>双击</b>波形：依次设置 <span style="color:var(--start)">起点</span> 和 <span style="color:var(--end)">终点</span>
+        </div>
 
-        <!-- 4. 控制区 -->
-        <div class="control-group">
-            <div class="row">
-                <button class="btn btn-play" id="btnPlay">▶ 播放</button>
-                <button class="btn btn-stop" id="btnStop">⏹ 停止</button>
-                <span id="timeDisplay" style="font-family:monospace; margin-left:auto; color:#666; font-size:0.9em;">00:00</span>
-            </div>
+        <!-- 波形图容器 -->
+        <div class="vis-container" id="waveformBox">
+            <canvas id="visualizer"></canvas>
+            <div id="playHead" class="play-head"></div>
+        </div>
 
+        <div class="row" style="margin-top:5px; margin-bottom: 5px;">
+            <button class="btn-reset" id="btnStop" style="background:#95a5a6; color:white; border:none; padding:8px 15px;">⏹ 停止播放</button>
+            <span id="timeDisplay" style="font-family:monospace; margin-left:auto; color:#2c3e50; font-weight:bold; font-size:1.1em;">00:00.00</span>
+        </div>
+
+        <div class="control-group" style="margin-top:5px;">
             <div class="row">
                 <div class="label">🚀 变速</div>
                 <input type="range" id="rateInput" min="0.5" max="2.0" step="0.1" value="1.0">
                 <div class="val-badge" id="rateVal">1.0x</div>
             </div>
-
             <div class="row">
                 <div class="label">🔊 音量</div>
                 <input type="range" id="volInput" min="0" max="3" step="0.1" value="1.0">
                 <div class="val-badge" id="volVal">100%</div>
             </div>
-            
             <div class="row">
                 <div class="label">👻 特效</div>
-                <input type="checkbox" id="reverseCheck" style="flex:0; margin:0;"> 
-                <label for="reverseCheck" style="font-size:0.85em; cursor:pointer; flex:1; margin:0; font-weight:normal;">倒放音频</label>
+                <input type="checkbox" id="reverseCheck" style="margin:0;">
+                <label for="reverseCheck" style="font-size:0.9em; margin:0;">倒放选区</label>
             </div>
         </div>
 
-        <!-- 5. 导出设置 -->
-        <div class="export-panel">
-            <div class="export-title">
-                <span>💾 导出设置</span>
-                <span style="font-size:0.8em; color:#7f8c8d;" id="estSizeDisplay">预估: -</span>
+        <div class="cut-panel">
+            <div class="cut-row">
+                <div class="label" style="width:auto; color:var(--start)">✂️ 起点:</div>
+                <input type="number" id="trimStart" class="time-input" value="0.00" step="0.1" min="0">
+                
+                <div style="width:10px;"></div>
+                
+                <div class="label" style="width:auto; color:var(--end)">✂️ 终点:</div>
+                <input type="number" id="trimEnd" class="time-input" value="0.00" step="0.1" min="0">
             </div>
+            <div class="cut-row" style="margin-top:5px;">
+                <button class="btn-preview" id="btnPlaySeg">▶ 预览选中片段 (Preview Selection)</button>
+            </div>
+        </div>
 
+        <div class="split-panel">
+            <span style="font-size:0.9em; font-weight:bold; color:#f39c12">📂 自动分段:</span>
+            <span style="font-size:0.85em; color:#666;">切分为</span>
+            <input type="number" id="splitCount" class="input-mini" value="2" min="2" step="1">
+            <span style="font-size:0.85em; color:#666;">段</span>
+            <button class="btn-split" id="btnBatchSplit">⚡ 批量切分并下载</button>
+        </div>
+
+        <div class="export-panel">
             <div class="setting-grid">
                 <div class="setting-item">
                     <label>格式</label>
-                    <select id="exportFormat">
-                        <option value="mp3">MP3</option>
-                        <option value="wav">WAV</option>
-                    </select>
+                    <select id="exportFormat"><option value="mp3">MP3</option><option value="wav">WAV</option></select>
                 </div>
                 <div class="setting-item" id="bitrateGroup">
                     <label>码率</label>
                     <select id="exportBitrate">
-                        <option value="320">320k (极佳)</option>
-                        <option value="192">192k (高)</option>
-                        <option value="128" selected>128k (标准)</option>
-                        <option value="64">64k (语音)</option>
-                        <option value="32">32k (小)</option>
+                        <option value="320">320k</option><option value="128" selected>128k</option><option value="64">64k</option>
                     </select>
                 </div>
                 <div class="setting-item">
                     <label>采样率</label>
                     <select id="exportRate">
-                        <option value="original">原始</option>
-                        <option value="44100">44100 Hz</option>
-                        <option value="22050">22050 Hz</option>
-                        <option value="8000">8000 Hz</option>
+                        <option value="original">原始</option><option value="44100">44100Hz</option><option value="22050">22050Hz</option>
                     </select>
                 </div>
                 <div class="setting-item">
                     <label>声道</label>
-                    <select id="exportChannels">
-                        <option value="original">原始</option>
-                        <option value="1">单声道</option>
-                    </select>
+                    <select id="exportChannels"><option value="original">原始</option><option value="1">单声道</option></select>
                 </div>
             </div>
-
-            <div class="auto-tool">
-                <span>🪄 限制大小:</span>
-                <input type="number" id="targetMB" class="input-mini" value="2.0" step="0.5">
-                <span>MB</span>
-                <button class="btn-auto" id="btnAutoConfig">自动配置</button>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <span style="font-size:0.85em; color:#7f8c8d; font-weight:bold;" id="estSizeDisplay">预估大小: -</span>
             </div>
-
-            <button class="btn btn-dl" id="btnDownload">开始处理并下载</button>
+            <button class="btn-dl" id="btnDownload">💾 导出当前片段</button>
         </div>
     </div>
 </div>
 
 <script>
-    // --- 逻辑部分保持 V6/V7 不变 ---
     let audioCtx;
     let originalBuffer = null; 
     let sourceNode = null;
     let gainNode = null;
-    let isPlaying = false;
-    let startTime = 0;
-    let pauseOffset = 0;
     
+    let isPlaying = false;
+    let startTime = 0;      
+    let startOffset = 0;    
+    let playMode = 'full';  // 'full' | 'segment'
+    
+    // 双击逻辑状态
+    let nextClickIsStart = true; // true=设起点, false=设终点
+
     let rawFileName = "audio"; 
     let rawFileSize = 0; 
 
@@ -226,27 +222,33 @@
     const UI = {
         file: el('fileInput'),
         workspace: el('workspace'),
-        playBtn: el('btnPlay'),
+        btnSeg: el('btnPlaySeg'),
+        btnStop: el('btnStop'),
+        tStart: el('trimStart'),
+        tEnd: el('trimEnd'),
+        head: el('playHead'),
+        time: el('timeDisplay'),
+        cvsBox: el('waveformBox'),
+        cvs: el('visualizer'),
         rate: el('rateInput'),
+        rateVal: el('rateVal'),
         vol: el('volInput'),
+        volVal: el('volVal'),
         rev: el('reverseCheck'),
         fmt: el('exportFormat'),
         br: el('exportBitrate'),
-        sr: el('exportRate'),
-        ch: el('exportChannels'),
         est: el('estSizeDisplay'),
-        target: el('targetMB'),
-        btnAuto: el('btnAutoConfig'),
+        splitN: el('splitCount'),
+        btnSplit: el('btnBatchSplit'),
         btnDl: el('btnDownload')
     };
 
-    // 文件上传
+    // 1. 初始化
     UI.file.addEventListener('change', async function() {
         if(!this.files.length) return;
         const file = this.files[0];
         this.value = ''; 
-
-        showLoader('正在分析...');
+        showLoader('正在解码...');
         rawFileSize = file.size;
         rawFileName = file.name.replace(/\.[^/.]+$/, ""); 
 
@@ -258,380 +260,346 @@
             originalBuffer = await audioCtx.decodeAudioData(arrayBuf);
 
             el('mName').innerText = file.name;
-            el('mSize').innerText = (file.size/1024/1024).toFixed(2) + 'MB';
-            el('mDur').innerText = formatTime(originalBuffer.duration);
+            el('mDur').innerText = formatTimeFull(originalBuffer.duration).split('.')[0];
             el('mParams').innerText = `${originalBuffer.sampleRate}Hz/${originalBuffer.numberOfChannels}ch`;
-            
             const estKbps = Math.round((file.size * 8) / originalBuffer.duration / 1000);
             el('mBitrate').innerText = `~${estKbps}kbps`;
 
+            UI.tStart.value = "0.00";
+            UI.tEnd.value = originalBuffer.duration.toFixed(2);
+            nextClickIsStart = true;
+
             el('workspace').classList.remove('hidden');
-            
             stopAudio();
-            drawStaticWave(); // 经典波形
-            updateEstimate(); 
+            drawStaticWave();
+            updateEstimate();
 
-        } catch(e) {
-            alert('文件解析失败: ' + e.message);
-        } finally {
-            hideLoader();
-        }
+        } catch(e) { alert('错误: '+e.message); } finally { hideLoader(); }
     });
 
-    // 重置
-    window.resetParams = function() {
-        if(!originalBuffer) return;
-        UI.rate.value = 1.0; el('rateVal').innerText = "1.0x";
-        UI.vol.value = 1.0; el('volVal').innerText = "100%";
-        UI.rev.checked = false;
-        UI.fmt.value = "mp3";
-        UI.br.value = "128";
-        UI.sr.value = "original";
-        UI.ch.value = "original";
-        el('bitrateGroup').style.opacity = '1';
-        UI.br.disabled = false;
-        
-        if(isPlaying && sourceNode) sourceNode.playbackRate.value = 1.0;
-        if(isPlaying && gainNode) gainNode.gain.value = 1.0;
-
-        updateEstimate();
-        if(!isPlaying) drawStaticWave();
-    };
-
-    // 预估与自动配置
-    function updateEstimate() {
-        if(!originalBuffer) return;
-        const rate = parseFloat(UI.rate.value);
-        const newDur = originalBuffer.duration / rate; 
-        const format = UI.fmt.value;
-        let estimatedBytes = 0;
-
-        if(format === 'mp3') {
-            const kbps = parseInt(UI.br.value);
-            estimatedBytes = (newDur * kbps * 1000) / 8;
-        } else {
-            let sRate = UI.sr.value === 'original' ? originalBuffer.sampleRate : parseInt(UI.sr.value);
-            let chans = UI.ch.value === 'original' ? originalBuffer.numberOfChannels : parseInt(UI.ch.value);
-            estimatedBytes = newDur * sRate * chans * 2 + 44; 
-        }
-
-        const estMB = estimatedBytes / 1024 / 1024;
-        let diff = estMB - (rawFileSize/1024/1024);
-        let arrow = diff > 0 ? "↑" : "↓";
-        UI.est.innerText = `预估: ${estMB.toFixed(2)} MB (${arrow})`;
-    }
-
-    [UI.rate, UI.fmt, UI.br, UI.sr, UI.ch].forEach(input => {
-        input.addEventListener('change', updateEstimate);
-        input.addEventListener('input', updateEstimate);
-    });
-    
-    UI.fmt.addEventListener('change', () => {
-        const isMp3 = UI.fmt.value === 'mp3';
-        el('bitrateGroup').style.opacity = isMp3 ? '1' : '0.3';
-        UI.br.disabled = !isMp3;
-    });
-
-    UI.btnAuto.addEventListener('click', () => {
-        if(!originalBuffer) return;
-        const targetMB = parseFloat(UI.target.value);
-        if(targetMB <= 0) return;
-
-        UI.fmt.value = 'mp3';
-        UI.br.disabled = false;
-        el('bitrateGroup').style.opacity = '1';
-
-        const rate = parseFloat(UI.rate.value);
-        const curDur = originalBuffer.duration / rate;
-        const idealKbps = (targetMB * 8388608) / curDur / 1000;
-        
-        const opts = [320, 192, 128, 64, 32];
-        let best = 32;
-        for(let o of opts) { if(idealKbps >= o) { best = o; break; } }
-
-        UI.br.value = best;
-        if(best <= 64) UI.ch.value = '1';
-        else UI.ch.value = 'original';
-
-        updateEstimate();
-    });
-
-    // 播放
-    UI.playBtn.addEventListener('click', () => {
-        if(isPlaying) {
-            if(sourceNode) try{sourceNode.stop()}catch(e){};
-            pauseOffset = audioCtx.currentTime - startTime;
-            isPlaying = false;
-            UI.playBtn.innerText = "▶ 播放";
-            drawStaticWave(); // 回到静态波形
-        } else {
-            playAudio(pauseOffset);
-            UI.playBtn.innerText = "⏸ 暂停";
-        }
-    });
-
-    el('btnStop').addEventListener('click', stopAudio);
-    
+    // 2. 实时交互逻辑 (核心修复)
+    // 监听 input 事件实现实时反馈
     UI.rate.addEventListener('input', function() {
-        el('rateVal').innerText = this.value + 'x';
-        if(isPlaying && sourceNode) sourceNode.playbackRate.value = this.value;
-    });
-    UI.vol.addEventListener('input', function() {
-        el('volVal').innerText = Math.round(this.value * 100) + '%';
-        if(isPlaying && gainNode) gainNode.gain.value = this.value;
+        const val = parseFloat(this.value);
+        UI.rateVal.innerText = val + 'x';
+        // 实时修改正在播放的音频
+        if(isPlaying && sourceNode) {
+            sourceNode.playbackRate.value = val;
+        }
+        updateEstimate();
     });
 
-    function playAudio(offset) {
+    UI.vol.addEventListener('input', function() {
+        const val = parseFloat(this.value);
+        UI.volVal.innerText = Math.round(val * 100) + '%';
+        // 实时修改正在播放的音量
+        if(isPlaying && gainNode) {
+            gainNode.gain.value = val;
+        }
+    });
+
+    // 3. 鼠标交互 (单击播放，双击设点)
+    UI.cvsBox.addEventListener('click', (e) => {
+        // 单击逻辑: 跳转并播放
         if(!originalBuffer) return;
-        sourceNode = audioCtx.createBufferSource();
+        const rect = UI.cvsBox.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const seekTime = percent * originalBuffer.duration;
         
-        if(UI.rev.checked) {
-            const tmp = audioCtx.createBuffer(originalBuffer.numberOfChannels, originalBuffer.length, originalBuffer.sampleRate);
-            for(let i=0; i<originalBuffer.numberOfChannels; i++) {
-                tmp.copyToChannel(originalBuffer.getChannelData(i), i);
-                Array.prototype.reverse.call(tmp.getChannelData(i));
-            }
-            sourceNode.buffer = tmp;
+        startOffset = seekTime;
+        playMode = 'full';
+        
+        // 无论当前是否播放，都从新位置重新开始播放
+        stopAudio(false, false); // 不重置offset
+        playAudio('full');
+    });
+
+    UI.cvsBox.addEventListener('dblclick', (e) => {
+        // 双击逻辑: 设点
+        e.stopPropagation(); // 防止冒泡
+        if(!originalBuffer) return;
+        const rect = UI.cvsBox.getBoundingClientRect();
+        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const clickTime = percent * originalBuffer.duration;
+
+        if(nextClickIsStart) {
+            // 设起点
+            if(clickTime >= parseFloat(UI.tEnd.value)) UI.tEnd.value = originalBuffer.duration.toFixed(2);
+            UI.tStart.value = clickTime.toFixed(2);
+            nextClickIsStart = false; // 下次设终点
         } else {
-            sourceNode.buffer = originalBuffer;
+            // 设终点
+            if(clickTime <= parseFloat(UI.tStart.value)) { 
+                alert("终点不能早于起点"); return; 
+            }
+            UI.tEnd.value = clickTime.toFixed(2);
+            nextClickIsStart = true; // 下次设起点
+        }
+        drawStaticWave();
+        updateEstimate();
+    });
+
+    // 4. 播放控制
+    UI.btnSeg.addEventListener('click', () => {
+        if(isPlaying && playMode === 'segment') stopAudio();
+        else {
+            stopAudio();
+            playAudio('segment');
+        }
+    });
+    UI.btnStop.addEventListener('click', () => stopAudio());
+
+    function playAudio(mode) {
+        if(!originalBuffer) return;
+        playMode = mode;
+        
+        let bufferToPlay = originalBuffer;
+        let playStart = 0; 
+        let duration = originalBuffer.duration;
+
+        if(mode === 'segment') {
+            const seg = getSegmentBuffer(UI.rev.checked);
+            if(!seg) return;
+            bufferToPlay = seg;
+            duration = seg.duration;
+            playStart = 0; 
+        } else {
+            playStart = startOffset; 
         }
 
-        sourceNode.playbackRate.value = UI.rate.value;
-        gainNode = audioCtx.createGain();
-        gainNode.gain.value = UI.vol.value;
+        sourceNode = audioCtx.createBufferSource();
+        sourceNode.buffer = bufferToPlay;
+        sourceNode.playbackRate.value = UI.rate.value; // 应用当前速度
         
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 2048; // 更高的精度用于画线
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = UI.vol.value; // 应用当前音量
         
         sourceNode.connect(gainNode);
-        gainNode.connect(analyser);
-        analyser.connect(audioCtx.destination);
+        gainNode.connect(audioCtx.destination);
         
-        // 播放时使用示波器效果
-        drawOscilloscope(analyser); 
-        
-        if(offset >= sourceNode.buffer.duration) offset = 0;
-        startTime = audioCtx.currentTime - offset;
-        sourceNode.start(0, offset);
+        startTime = audioCtx.currentTime;
+        sourceNode.start(0, playStart);
         isPlaying = true;
 
+        if(mode === 'segment') UI.btnSeg.innerText = "⏹ 停止预览";
+        
+        requestAnimationFrame(updatePlayHead);
+
         sourceNode.onended = () => {
-            const played = (audioCtx.currentTime - startTime) * UI.rate.value;
-            if(played >= sourceNode.buffer.duration - 0.1) {
-                isPlaying = false;
-                pauseOffset = 0;
-                UI.playBtn.innerText = "▶ 播放";
-                drawStaticWave();
-            }
+            const playedTime = (audioCtx.currentTime - startTime) * parseFloat(UI.rate.value);
+            if(playedTime >= duration - playStart - 0.1) stopAudio(true);
         };
     }
 
-    function stopAudio() {
+    function stopAudio(reset = false, updateOffset = true) {
         if(sourceNode) try{sourceNode.stop()}catch(e){}
+        
+        if(isPlaying && playMode === 'full' && updateOffset) {
+            const elapsed = (audioCtx.currentTime - startTime) * parseFloat(UI.rate.value);
+            startOffset += elapsed;
+            if(startOffset >= originalBuffer.duration || reset) startOffset = 0;
+        }
+        
         isPlaying = false;
-        pauseOffset = 0;
-        UI.playBtn.innerText = "▶ 播放";
-        el('timeDisplay').innerText = "00:00";
+        UI.btnSeg.innerText = "▶ 预览选中片段 (Preview Selection)";
+        
+        if(playMode === 'full') updatePlayHeadUI(startOffset);
+        else UI.head.style.display = 'none';
+
         drawStaticWave();
     }
 
-    // 导出
-    UI.btnDl.addEventListener('click', async () => {
-        if(!originalBuffer) return;
-        showLoader('正在渲染...');
+    // 5. 可视化绘制
+    function updatePlayHead() {
+        if(!isPlaying) return;
+        requestAnimationFrame(updatePlayHead);
         
-        try {
-            const rate = parseFloat(UI.rate.value);
-            const vol = parseFloat(UI.vol.value);
-            const isRev = UI.rev.checked;
-            const fmt = UI.fmt.value;
-            let tSR = UI.sr.value === 'original' ? originalBuffer.sampleRate : parseInt(UI.sr.value);
-            let tCh = UI.ch.value === 'original' ? originalBuffer.numberOfChannels : parseInt(UI.ch.value);
-            
-            const newDur = originalBuffer.duration / rate;
-            const offCtx = new OfflineAudioContext(tCh, newDur * tSR, tSR);
-            
-            const src = offCtx.createBufferSource();
-            let procBuf = originalBuffer;
-            
-            if(isRev) {
-                const tmp = new (window.AudioContext || window.webkitAudioContext)();
-                procBuf = tmp.createBuffer(originalBuffer.numberOfChannels, originalBuffer.length, originalBuffer.sampleRate);
-                for(let i=0; i<originalBuffer.numberOfChannels; i++) {
-                    procBuf.copyToChannel(originalBuffer.getChannelData(i), i);
-                    Array.prototype.reverse.call(procBuf.getChannelData(i));
-                }
-            }
-            
-            src.buffer = procBuf;
-            src.playbackRate.value = rate;
-            const gain = offCtx.createGain();
-            gain.gain.value = vol;
-            src.connect(gain);
-            gain.connect(offCtx.destination);
-            src.start(0);
-            
-            const rendered = await offCtx.startRendering();
-            
-            let blob, ext;
-            if(fmt === 'mp3') {
-                if(!window.lamejs) throw new Error("MP3组件未加载");
-                blob = bufferToMp3(rendered, parseInt(UI.br.value));
-                ext = 'mp3';
-            } else {
-                blob = bufferToWave(rendered, rendered.length);
-                ext = 'wav';
-            }
-            
-            const now = new Date();
-            const ts = now.getFullYear() +
-                       (now.getMonth()+1).toString().padStart(2,'0') +
-                       now.getDate().toString().padStart(2,'0') + 
-                       now.getHours().toString().padStart(2,'0') +
-                       now.getMinutes().toString().padStart(2,'0') +
-                       now.getSeconds().toString().padStart(2,'0');
-            
-            const filename = `${rawFileName}${ts}.${ext}`;
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-        } catch(e) {
-            alert("导出出错: " + e.message);
-        } finally {
-            hideLoader();
+        const rate = parseFloat(UI.rate.value);
+        let currentSec = (audioCtx.currentTime - startTime) * rate;
+        
+        if(playMode === 'full') {
+            currentSec += startOffset;
+            UI.time.innerText = formatTimeFull(currentSec);
+            const percent = currentSec / originalBuffer.duration;
+            UI.head.style.display = 'block';
+            UI.head.style.left = (percent * 100) + '%';
+        } else {
+            UI.time.innerText = "预览: " + formatTimeFull(currentSec);
+            UI.head.style.display = 'none'; 
         }
+    }
+
+    function updatePlayHeadUI(time) {
+        if(!originalBuffer) return;
+        const percent = time / originalBuffer.duration;
+        UI.head.style.display = 'block';
+        UI.head.style.left = (percent * 100) + '%';
+    }
+
+    function drawStaticWave() {
+        const cvs = UI.cvs;
+        const ctx = cvs.getContext('2d');
+        const w = cvs.width = cvs.clientWidth; 
+        const h = cvs.height = cvs.clientHeight;
+        
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = '#f0f3f5'; ctx.fillRect(0,0,w,h);
+        if(!originalBuffer) return;
+
+        const data = originalBuffer.getChannelData(0);
+        const step = Math.ceil(data.length/w);
+        const amp = h/2;
+        
+        const dur = originalBuffer.duration;
+        const s = parseFloat(UI.tStart.value);
+        const e = parseFloat(UI.tEnd.value);
+        const xS = (s/dur)*w;
+        const xE = (e/dur)*w;
+        
+        // 绘制波形
+        ctx.beginPath();
+        for(let i=0; i<w; i++){
+            let min=1.0, max=-1.0;
+            for(let j=0; j<step; j++){
+                let v=data[i*step+j]; if(v<min)min=v; if(v>max)max=v;
+            }
+            if(i<xS || i>xE) ctx.fillStyle = '#bdc3c7'; // 灰色(未选)
+            else ctx.fillStyle = '#3498db'; // 蓝色(选中)
+            ctx.fillRect(i, (1+min)*amp, 1, Math.max(1,(max-min)*amp));
+        }
+
+        // 绘制起止线
+        // 起点线 (绿)
+        ctx.fillStyle = '#27ae60';
+        ctx.fillRect(xS, 0, 2, h);
+        // 终点线 (红)
+        ctx.fillStyle = '#c0392b';
+        ctx.fillRect(xE, 0, 2, h);
+        
+        // 遮罩
+        ctx.fillStyle = 'rgba(0,0,0,0.05)';
+        ctx.fillRect(0,0,xS,h);
+        ctx.fillRect(xE,0,w-xE,h);
+    }
+
+    // 辅助功能
+    UI.tStart.addEventListener('change', () => { validateTime(); drawStaticWave(); updateEstimate(); nextClickIsStart=false; });
+    UI.tEnd.addEventListener('change', () => { validateTime(); drawStaticWave(); updateEstimate(); nextClickIsStart=true; });
+    function validateTime() {
+        let s = parseFloat(UI.tStart.value);
+        let e = parseFloat(UI.tEnd.value);
+        if(s<0) s=0; if(e>originalBuffer.duration) e=originalBuffer.duration;
+        if(s>=e) s = e - 0.1;
+        UI.tStart.value=s.toFixed(2); UI.tEnd.value=e.toFixed(2);
+    }
+
+    UI.btnSplit.addEventListener('click', async () => {
+        if(!originalBuffer) return;
+        const n = parseInt(UI.splitN.value);
+        if(n < 2) return;
+        showLoader(`正在批量切分为 ${n} 段...`);
+        try {
+            const totalDur = originalBuffer.duration;
+            const segDur = totalDur / n;
+            for(let i=0; i<n; i++) {
+                const blob = await renderSegmentToBlob(i * segDur, (i+1) * segDur);
+                const fname = `${rawFileName}_part${i+1}.${el('exportFormat').value}`;
+                triggerDownload(blob, fname);
+                await new Promise(r => setTimeout(r, 500));
+            }
+        } catch(e) { alert('分段失败: ' + e); } finally { hideLoader(); }
     });
 
-    // 辅助编码
-    function bufferToMp3(buf, kbps) {
-        const mp3enc = new lamejs.Mp3Encoder(buf.numberOfChannels, buf.sampleRate, kbps);
-        const data = [];
-        const left = buf.getChannelData(0);
-        const right = buf.numberOfChannels > 1 ? buf.getChannelData(1) : undefined;
-        const convert = (arr) => {
-            const res = new Int16Array(arr.length);
-            for(let i=0; i<arr.length; i++) {
-                let s = Math.max(-1, Math.min(1, arr[i]));
-                res[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-            }
-            return res;
-        };
-        const lData = convert(left);
-        const rData = right ? convert(right) : undefined;
-        const blockSize = 1152;
-        for(let i=0; i<lData.length; i+=blockSize) {
-            const l = lData.subarray(i, i+blockSize);
-            const r = rData ? rData.subarray(i, i+blockSize) : undefined;
-            const b = mp3enc.encodeBuffer(l, r);
-            if(b.length > 0) data.push(b);
-        }
-        const end = mp3enc.flush();
-        if(end.length > 0) data.push(end);
-        return new Blob(data, {type: 'audio/mp3'});
-    }
-
-    function bufferToWave(abuffer, len) {
-        let numOfChan = abuffer.numberOfChannels, length = len * numOfChan * 2 + 44, buffer = new ArrayBuffer(length), view = new DataView(buffer), channels = [], i, sample, offset = 0, pos = 0;
-        setUint32(0x46464952); setUint32(length - 8); setUint32(0x45564157); setUint32(0x20746d66); setUint32(16); setUint16(1); setUint16(numOfChan); setUint32(abuffer.sampleRate); setUint32(abuffer.sampleRate * 2 * numOfChan); setUint16(numOfChan * 2); setUint16(16); setUint32(0x61746164); setUint32(length - pos - 4);
-        for(i=0; i<abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
-        while(pos < len) { for(i=0; i<numOfChan; i++) { sample = Math.max(-1, Math.min(1, channels[i][pos])); sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0; view.setInt16(44 + offset, sample, true); offset += 2; } pos++; }
-        return new Blob([buffer], {type: "audio/wav"});
-        function setUint16(d) { view.setUint16(pos, d, true); pos += 2; }
-        function setUint32(d) { view.setUint32(pos, d, true); pos += 4; }
-    }
-
-    // --- 修改点：可视化 (回归经典) ---
-    
-    // 动态：示波器 (Oscilloscope)
-    function drawOscilloscope(analyser) {
-        const cvs = el('visualizer');
-        const ctx = cvs.getContext('2d');
-        const bufferLen = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLen);
-        const w = cvs.width;
-        const h = cvs.height;
-        
-        function draw() {
-            if(!isPlaying) return;
-            requestAnimationFrame(draw);
-            // 使用 TimeDomainData 获取波形数据
-            analyser.getByteTimeDomainData(dataArray);
-            
-            ctx.fillStyle = '#f0f3f5';
-            ctx.fillRect(0, 0, w, h);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#2980b9'; // 经典蓝
-            ctx.beginPath();
-
-            const sliceWidth = w * 1.0 / bufferLen;
-            let x = 0;
-
-            for(let i = 0; i < bufferLen; i++) {
-                const v = dataArray[i] / 128.0;
-                const y = v * h/2;
-
-                if(i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-
-                x += sliceWidth;
-            }
-            ctx.lineTo(cvs.width, cvs.height/2);
-            ctx.stroke();
-
-            // 更新时间
-            let cur = (audioCtx.currentTime - startTime) * parseFloat(UI.rate.value);
-            el('timeDisplay').innerText = formatTime(cur);
-        }
-        draw();
-    }
-
-    // 静态：标准波形 (Envelope)
-    function drawStaticWave() {
-        const cvs = el('visualizer');
-        const ctx = cvs.getContext('2d');
-        const w = cvs.width;
-        const h = cvs.height;
-
-        ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = '#f0f3f5';
-        ctx.fillRect(0,0,w,h);
-        
+    UI.btnDl.addEventListener('click', async () => {
         if(!originalBuffer) return;
-        const data = originalBuffer.getChannelData(0);
-        const step = Math.ceil(data.length / w);
-        const amp = h / 2;
-        
-        ctx.fillStyle = '#3498db'; // 实心波形颜色
-        
-        // 绘制中轴线
-        ctx.beginPath();
-        ctx.strokeStyle = '#bdc3c7';
-        ctx.lineWidth = 1;
-        ctx.moveTo(0, h/2);
-        ctx.lineTo(w, h/2);
-        ctx.stroke();
+        showLoader('正在导出...');
+        try {
+            const s = parseFloat(UI.tStart.value);
+            const e = parseFloat(UI.tEnd.value);
+            const blob = await renderSegmentToBlob(s, e);
+            const ext = el('exportFormat').value;
+            triggerDownload(blob, `${rawFileName}_cut.${ext}`);
+        } catch(e) { alert(e); } finally { hideLoader(); }
+    });
 
-        for(let i=0; i < w; i++){
-            let min = 1.0;
-            let max = -1.0;
-            for (let j=0; j<step; j++) {
-                const datum = data[i*step + j]; 
-                if (datum < min) min = datum;
-                if (datum > max) max = datum;
-            }
-            // 绘制垂直条 (Min到Max)
-            ctx.fillRect(i, (1+min)*amp, 1, Math.max(1, (max-min)*amp));
+    // 渲染函数
+    async function renderSegmentToBlob(startTime, endTime) {
+        const dur = endTime - startTime;
+        if(dur <= 0) throw new Error("时长无效");
+        const rate = parseFloat(UI.rate.value);
+        const vol = parseFloat(UI.vol.value);
+        const isRev = UI.rev.checked;
+        let tSR = el('exportRate').value==='original' ? originalBuffer.sampleRate : parseInt(el('exportRate').value);
+        let tCh = el('exportChannels').value==='original' ? originalBuffer.numberOfChannels : parseInt(el('exportChannels').value);
+        const renderDur = dur / rate;
+        const offCtx = new OfflineAudioContext(tCh, renderDur * tSR, tSR);
+        const cutBuf = audioCtx.createBuffer(originalBuffer.numberOfChannels, Math.floor(dur * originalBuffer.sampleRate), originalBuffer.sampleRate);
+        const startFrame = Math.floor(startTime * originalBuffer.sampleRate);
+        for(let i=0; i<originalBuffer.numberOfChannels; i++) {
+            const old = originalBuffer.getChannelData(i);
+            const curr = cutBuf.getChannelData(i);
+            for(let j=0; j<cutBuf.length; j++) curr[j] = old[startFrame+j] || 0;
+            if(isRev) Array.prototype.reverse.call(curr);
         }
+        const src = offCtx.createBufferSource();
+        src.buffer = cutBuf; src.playbackRate.value = rate;
+        const gain = offCtx.createGain(); gain.gain.value = vol;
+        src.connect(gain); gain.connect(offCtx.destination); src.start(0);
+        const rendered = await offCtx.startRendering();
+        if(el('exportFormat').value === 'mp3') return bufferToMp3(rendered, parseInt(UI.br.value));
+        else return bufferToWave(rendered, rendered.length);
+    }
+    
+    function getSegmentBuffer(isRev) {
+        const s = parseFloat(UI.tStart.value);
+        const e = parseFloat(UI.tEnd.value);
+        const dur = e-s; if(dur<=0) return null;
+        const f = Math.floor(dur*originalBuffer.sampleRate);
+        const b = audioCtx.createBuffer(originalBuffer.numberOfChannels, f, originalBuffer.sampleRate);
+        const startF = Math.floor(s*originalBuffer.sampleRate);
+        for(let i=0; i<b.numberOfChannels; i++){
+            const o = originalBuffer.getChannelData(i);
+            const n = b.getChannelData(i);
+            for(let k=0; k<f; k++) n[k] = o[startF+k]||0;
+            if(isRev) Array.prototype.reverse.call(n);
+        }
+        return b;
     }
 
+    function triggerDownload(blob, name) {
+        const url = URL.createObjectURL(blob); const a = document.createElement('a');
+        a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+    function resetParams() {
+        if(!originalBuffer) return;
+        UI.rate.value=1; el('rateVal').innerText="1.0x";
+        UI.vol.value=1; el('volVal').innerText="100%";
+        UI.rev.checked=false;
+        UI.tStart.value="0.00"; UI.tEnd.value=originalBuffer.duration.toFixed(2);
+        stopAudio();
+        drawStaticWave(); updateEstimate();
+    }
+    function updateEstimate() {
+        if(!originalBuffer) return;
+        const dur = Math.max(0, parseFloat(UI.tEnd.value)-parseFloat(UI.tStart.value));
+        const rDur = dur / parseFloat(UI.rate.value);
+        let bytes=0;
+        if(UI.fmt.value==='mp3') bytes = (rDur * parseInt(UI.br.value) * 1000)/8;
+        else {
+            let sr = el('exportRate').value==='original'?originalBuffer.sampleRate:parseInt(el('exportRate').value);
+            let ch = el('exportChannels').value==='original'?originalBuffer.numberOfChannels:parseInt(el('exportChannels').value);
+            bytes = rDur*sr*ch*2+44;
+        }
+        UI.est.innerText = `预估: ${(bytes/1024/1024).toFixed(2)} MB`;
+    }
+    [UI.rate, UI.fmt, UI.br, UI.sr, UI.ch].forEach(i=>{i.addEventListener('input', updateEstimate); i.addEventListener('change', updateEstimate); });
+    UI.fmt.addEventListener('change', () => { const isMp3 = UI.fmt.value === 'mp3'; el('bitrateGroup').style.opacity = isMp3?'1':'0.3'; UI.br.disabled = !isMp3; });
+    function formatTimeFull(s) { const m = Math.floor(s/60); const sec = Math.floor(s%60); const ms = Math.floor((s%1)*100); return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}.${ms.toString().padStart(2,'0')}`; }
     function showLoader(t){ el('loader').style.display='flex'; el('loaderText').innerText=t; }
     function hideLoader(){ el('loader').style.display='none'; }
-    function formatTime(s) { const m=Math.floor(s/60); const sc=Math.floor(s%60); return `${m}:${sc.toString().padStart(2,'0')}`; }
+    function bufferToMp3(buf, kbps) { const enc = new lamejs.Mp3Encoder(buf.numberOfChannels, buf.sampleRate, kbps); const d=[]; const l=buf.getChannelData(0); const r=buf.numberOfChannels>1?buf.getChannelData(1):undefined; const conv=a=>{const i=new Int16Array(a.length); for(let k=0;k<a.length;k++){let v=Math.max(-1,Math.min(1,a[k])); i[k]=v<0?v*0x8000:v*0x7FFF;} return i;} 
+    const lD=conv(l); const rD=r?conv(r):undefined; const bs=1152; for(let i=0;i<lD.length;i+=bs){ const b=enc.encodeBuffer(lD.subarray(i,i+bs), rD?rD.subarray(i,i+bs):undefined); if(b.length>0)d.push(b); } const f=enc.flush(); if(f.length>0)d.push(f); return new Blob(d,{type:'audio/mp3'}); }
+    function bufferToWave(b,len){let c=b.numberOfChannels,l=len*c*2+44,bf=new ArrayBuffer(l),v=new DataView(bf),p=0;function u16(x){v.setUint16(p,x,true);p+=2}function u32(x){v.setUint32(p,x,true);p+=4}u32(0x46464952);u32(l-8);u32(0x45564157);u32(0x20746d66);u32(16);u16(1);u16(c);u32(b.sampleRate);u32(b.sampleRate*2*c);u16(c*2);u16(16);u32(0x61746164);u32(l-p-4);let chs=[];for(let i=0;i<c;i++)chs.push(b.getChannelData(i));while(p<l){for(let i=0;i<c;i++){let s=Math.max(-1,Math.min(1,chs[i][(p-44)/2/c]));s=(s<0?s*32768:s*32767)|0;v.setInt16(p,s,true);p+=2;}}return new Blob([bf],{type:'audio/wav'});}
 </script>
 </body>
 </html>
