@@ -3,603 +3,866 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web音频工坊 V12 - 实时交互版</title>
+    <title>Web音频工坊 V13</title>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
-        :root { --primary: #2980b9; --accent: #e74c3c; --start: #27ae60; --end: #c0392b; --bg: #f5f6fa; --card: #ffffff; --text: #2c3e50; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; margin: 0; min-height: 100vh; box-sizing: border-box; }
-        
-        .container { width: 100%; max-width: 850px; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 12px; }
-        
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin: 0; }
-        h1 { margin: 0; font-size: 1.3rem; color: var(--primary); }
-        .btn-reset { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition:0.2s; }
-        .btn-reset:hover { background: #bdc3c7; color: white; }
-
-        .upload-box { border: 2px dashed #bdc3c7; padding: 10px; border-radius: 8px; background: #fcfcfc; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 15px; min-height: 45px; }
-        .upload-box:hover { border-color: var(--primary); background: #ebf5fb; }
-        .upload-icon { font-size: 1.4rem; }
-        .upload-text h3 { margin: 0; font-size: 0.95rem; color: #34495e; }
-        .upload-text p { margin: 0; font-size: 0.75rem; color: #7f8c8d; }
-
-        .info-bar { display: flex; flex-wrap: wrap; gap: 15px; background: #ecf0f1; padding: 8px 12px; border-radius: 6px; font-size: 0.85em; color: #7f8c8d; border-left: 4px solid var(--primary); align-items: center; }
-        .info-item b { color: #2c3e50; margin-right: 4px; }
-        .tag { background: #fff; padding: 1px 6px; border-radius: 4px; font-weight: bold; color: var(--primary); font-size: 0.8em; }
-
-        /* 波形图容器 */
-        .vis-container { 
-            position: relative; 
-            width: 100%; 
-            height: 120px; 
-            background: #f0f3f5; 
-            border: 1px solid #bdc3c7; 
-            border-radius: 4px; 
-            overflow: hidden; 
-            cursor: pointer; 
-            user-select: none;
+        :root {
+            --primary: #2980b9; --accent: #e74c3c; --start: #27ae60; --end: #c0392b;
+            --bg: #f5f6fa; --card: #ffffff; --text: #2c3e50;
+            --merge: #8e44ad; --merge-light: #f5eef8;
         }
-        .vis-container:hover { border-color: var(--primary); }
-        
-        canvas { width: 100%; height: 100%; display: block; }
-        
-        /* 播放头 */
-        .play-head { position: absolute; top:0; left:0; width: 2px; height: 100%; background: var(--accent); pointer-events: none; display: none; z-index: 10; box-shadow: 0 0 5px rgba(231, 76, 60, 0.8); }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; margin: 0; min-height: 100vh; }
+        .container { width: 100%; max-width: 850px; display: flex; flex-direction: column; gap: 14px; }
 
-        .tips { font-size: 0.8em; color: #7f8c8d; text-align: center; background: #fafafa; padding: 5px; border-radius: 4px; border: 1px dashed #eee; }
+        /* ===== CARD ===== */
+        .card { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 12px; }
+
+        /* ===== HEADER ===== */
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        h1 { margin: 0; font-size: 1.3rem; color: var(--primary); }
+        h2 { margin: 0; font-size: 1.1rem; color: var(--merge); }
+        .btn-sm { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: .2s; }
+        .btn-sm:hover { background: #bdc3c7; color: white; }
+
+        /* ===== UPLOAD BOX ===== */
+        .upload-box { border: 2px dashed #bdc3c7; padding: 12px 16px; border-radius: 8px; background: #fcfcfc; cursor: pointer; transition: .2s; display: flex; align-items: center; gap: 14px; min-height: 50px; }
+        .upload-box:hover { border-color: var(--primary); background: #ebf5fb; }
+        .upload-box.merge-box:hover { border-color: var(--merge); background: var(--merge-light); }
+        .upload-icon { font-size: 1.5rem; }
+        .upload-text h3 { margin: 0; font-size: 0.95rem; color: #34495e; }
+        .upload-text p  { margin: 0; font-size: 0.75rem; color: #7f8c8d; }
+
+        /* ===== INFO BAR ===== */
+        .info-bar { display: flex; flex-wrap: wrap; gap: 12px; background: #ecf0f1; padding: 8px 12px; border-radius: 6px; font-size: .85em; color: #7f8c8d; border-left: 4px solid var(--primary); align-items: center; }
+        .info-item b { color: #2c3e50; margin-right: 3px; }
+        .tag { background: #fff; padding: 1px 7px; border-radius: 4px; font-weight: bold; color: var(--primary); font-size: .8em; }
+
+        /* ===== WAVEFORM ===== */
+        .vis-container { position: relative; width: 100%; height: 120px; background: #f0f3f5; border: 1px solid #bdc3c7; border-radius: 4px; overflow: hidden; cursor: pointer; user-select: none; }
+        .vis-container:hover { border-color: var(--primary); }
+        canvas { width: 100%; height: 100%; display: block; }
+        .play-head { position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: var(--accent); pointer-events: none; display: none; z-index: 10; box-shadow: 0 0 5px rgba(231,76,60,.8); }
+
+        /* ===== TIPS ===== */
+        .tips { font-size: .8em; color: #7f8c8d; text-align: center; background: #fafafa; padding: 5px 8px; border-radius: 4px; border: 1px dashed #eee; }
         .tips b { color: #2c3e50; }
 
+        /* ===== CONTROLS ===== */
         .control-group { display: flex; flex-direction: column; gap: 10px; }
         .row { display: flex; align-items: center; gap: 10px; }
-        .label { width: 70px; font-weight: 700; font-size: 0.9em; flex-shrink: 0; color: #34495e; }
-        
-        /* 剪切面板 */
-        .cut-panel { background: #f4f6f7; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 8px; }
-        .cut-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .time-input { width: 65px; padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px; text-align: center; font-family: monospace; font-weight: bold; color: var(--primary); }
-        .btn-preview { background: #34495e; color: white; border:none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9em; width: 100%; }
-        .btn-preview:hover { background: #2c3e50; }
-
-        /* 自动分段 */
-        .split-panel { background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; margin-top: 5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .input-mini { width: 50px; padding: 5px; border: 1px solid #ffe082; border-radius: 4px; text-align: center; }
-        .btn-split { background: #f39c12; color: white; border: none; padding: 6px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.9em; }
+        .label { width: 75px; font-weight: 700; font-size: .9em; flex-shrink: 0; color: #34495e; }
+        .pitch-badge { font-size: .7em; background: #27ae60; color: white; padding: 1px 5px; border-radius: 3px; margin-left: 3px; vertical-align: middle; }
 
         input[type=range] { flex: 1; height: 6px; border-radius: 3px; background: #bdc3c7; -webkit-appearance: none; outline: none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; transition: 0.1s; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; transition: .1s; }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-        .val-badge { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; min-width: 35px; text-align: center; }
+        .val-badge { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: .75em; min-width: 38px; text-align: center; }
 
-        .export-panel { border-top: 1px dashed #ccc; padding-top: 15px; margin-top: 5px; }
-        .setting-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 10px; }
-        .setting-item label { display: block; font-size: 0.75em; color: #95a5a6; margin-bottom: 3px; }
-        select { width: 100%; padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: 0.85em; background: white; }
-        
-        .btn-dl { width: 100%; padding: 12px; background: var(--success); color: white; font-size: 1.1rem; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #219150; transition: 0.1s; }
+        /* ===== CUT PANEL ===== */
+        .cut-panel { background: #f4f6f7; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 8px; }
+        .cut-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .time-input { width: 68px; padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px; text-align: center; font-family: monospace; font-weight: bold; color: var(--primary); }
+        .btn-preview { background: #34495e; color: white; border: none; padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: .9em; width: 100%; }
+        .btn-preview:hover { background: #2c3e50; }
+
+        /* ===== SPLIT PANEL ===== */
+        .split-panel { background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .input-mini { width: 52px; padding: 5px; border: 1px solid #ffe082; border-radius: 4px; text-align: center; }
+        .btn-split { background: #f39c12; color: white; border: none; padding: 6px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: .9em; }
+        .btn-split:hover { background: #d68910; }
+
+        /* ===== EXPORT PANEL ===== */
+        .export-panel { border-top: 1px dashed #ccc; padding-top: 14px; }
+        .setting-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .setting-item label { display: block; font-size: .75em; color: #95a5a6; margin-bottom: 3px; }
+        select { width: 100%; padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: .85em; background: white; }
+        .btn-dl { width: 100%; padding: 12px; background: #27ae60; color: white; font-size: 1.05rem; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #219150; transition: .1s; }
         .btn-dl:active { transform: translateY(4px); box-shadow: none; }
+        .btn-dl:hover { background: #229954; }
 
+        /* ===== MERGE SECTION ===== */
+        .merge-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e8d5f5; padding-bottom: 10px; }
+        .merge-file-list { display: flex; flex-direction: column; gap: 4px; min-height: 20px; }
+        .merge-empty { text-align: center; color: #aaa; font-size: .85em; padding: 12px; background: #fafafa; border: 1px dashed #ddd; border-radius: 6px; }
+        
+        .merge-file-item {
+            display: flex; align-items: center; gap: 8px;
+            background: white; border: 1px solid #e0d0f0;
+            border-radius: 6px; padding: 7px 10px;
+            cursor: grab; transition: box-shadow .15s, opacity .15s;
+            user-select: none;
+        }
+        .merge-file-item:active { cursor: grabbing; }
+        .merge-file-item.drag-over { border-color: var(--merge); box-shadow: 0 0 0 2px rgba(142,68,173,.3); }
+        .merge-file-item.dragging { opacity: .4; }
+        .drag-handle { font-size: 1.1em; color: #bbb; cursor: grab; }
+        .merge-file-info { flex: 1; min-width: 0; }
+        .merge-file-name { font-size: .88em; font-weight: 600; color: #34495e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .merge-file-meta { font-size: .75em; color: #999; margin-top: 1px; }
+        .merge-file-num { width: 22px; height: 22px; border-radius: 50%; background: var(--merge); color: white; font-size: .75em; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .btn-remove { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1.1em; padding: 0 2px; line-height: 1; }
+        .btn-remove:hover { color: #c0392b; }
+
+        .merge-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed #e0d0f0; }
+        .merge-info { flex: 1; font-size: .82em; color: #8e44ad; font-weight: 600; }
+        .btn-merge { background: var(--merge); color: white; border: none; padding: 9px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: .95em; box-shadow: 0 3px 0 #6c3483; transition: .1s; }
+        .btn-merge:active { transform: translateY(3px); box-shadow: none; }
+        .btn-merge:hover { background: #7d3c98; }
+        .btn-merge:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+        .btn-clear-merge { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: .85em; }
+        .btn-clear-merge:hover { background: #bdc3c7; color: white; }
+
+        .merge-format-row { display: flex; gap: 10px; flex-wrap: wrap; }
+        .merge-format-row .setting-item { flex: 1; min-width: 100px; }
+
+        /* ===== LOADER ===== */
         .hidden { display: none !important; }
-        #loader { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.95); z-index: 999; flex-direction: column; justify-content: center; align-items: center; }
-        .spinner { width: 30px; height: 30px; border: 3px solid #eee; border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,.95); z-index: 999; flex-direction: column; justify-content: center; align-items: center; }
+        .spinner { width: 30px; height: 30px; border: 3px solid #eee; border-top: 3px solid var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+        .loader-progress { margin-top: 8px; font-size: .85em; color: #888; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== MISC ===== */
+        .sort-hint { font-size: .78em; color: #aaa; text-align: center; }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <div class="header">
-        <h1>🎧 Web 音频工坊 V12</h1>
-        <button class="btn-reset" onclick="resetParams()">↺ 重置参数</button>
-    </div>
 
+    <!-- ===== LOADER ===== -->
     <div id="loader">
         <div class="spinner"></div>
-        <div style="margin-top:10px; color:#555; font-size:0.9em;" id="loaderText">处理中...</div>
+        <div style="margin-top:10px;color:#555;font-size:.9em" id="loaderText">处理中...</div>
+        <div class="loader-progress" id="loaderProgress"></div>
     </div>
 
-    <div class="upload-box" onclick="document.getElementById('fileInput').click()">
-        <div class="upload-icon">👆</div>
-        <div class="upload-text">
-            <h3>点击上传音频文件</h3>
-            <p>支持 MP3, M4A, WAV, FLAC</p>
+    <!-- ===== SINGLE FILE EDITOR ===== -->
+    <div class="card">
+        <div class="header">
+            <h1>🎧 Web 音频工坊 V13</h1>
+            <button class="btn-sm" onclick="resetParams()">↺ 重置参数</button>
         </div>
-        <input type="file" id="fileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac" style="display:none">
+
+        <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">👆</div>
+            <div class="upload-text">
+                <h3>点击上传音频文件</h3>
+                <p>支持 MP3, M4A, WAV, AAC, FLAC 等</p>
+            </div>
+            <input type="file" id="fileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac" style="display:none">
+        </div>
+
+        <div id="workspace" class="hidden" style="display:flex;flex-direction:column;gap:12px;">
+            <div class="info-bar">
+                <div class="info-item"><b>文件:</b> <span id="mName">-</span></div>
+                <div class="info-item"><b>时长:</b> <span id="mDur">-</span></div>
+                <div class="info-item"><b>格式:</b> <span id="mParams">-</span></div>
+                <div class="tag" id="mBitrate">-</div>
+            </div>
+
+            <div class="tips">
+                🖱️ <b>单击</b>波形：从该处播放 &nbsp;|&nbsp; 🖱️🖱️ <b>双击</b>：依次设置 <span style="color:var(--start)">起点</span> / <span style="color:var(--end)">终点</span>
+            </div>
+
+            <div class="vis-container" id="waveformBox">
+                <canvas id="visualizer"></canvas>
+                <div id="playHead" class="play-head"></div>
+            </div>
+
+            <div class="row" style="margin-top:2px;">
+                <button class="btn-sm" id="btnStop" style="background:#95a5a6;color:white;border:none;padding:8px 15px;">⏹ 停止</button>
+                <span id="timeDisplay" style="font-family:monospace;margin-left:auto;color:#2c3e50;font-weight:bold;font-size:1.1em;">00:00.00</span>
+            </div>
+
+            <div class="control-group">
+                <div class="row">
+                    <div class="label">🚀 变速 <span class="pitch-badge">音调不变</span></div>
+                    <input type="range" id="rateInput" min="0.5" max="2.0" step="0.05" value="1.0">
+                    <div class="val-badge" id="rateVal">1.0x</div>
+                </div>
+                <div class="row">
+                    <div class="label">🔊 音量</div>
+                    <input type="range" id="volInput" min="0" max="3" step="0.1" value="1.0">
+                    <div class="val-badge" id="volVal">100%</div>
+                </div>
+                <div class="row">
+                    <div class="label">👻 特效</div>
+                    <input type="checkbox" id="reverseCheck" style="margin:0;">
+                    <label for="reverseCheck" style="font-size:.9em;margin:0;">倒放选区</label>
+                </div>
+            </div>
+
+            <div class="cut-panel">
+                <div class="cut-row">
+                    <div class="label" style="width:auto;color:var(--start)">✂️ 起点:</div>
+                    <input type="number" id="trimStart" class="time-input" value="0.00" step="0.1" min="0">
+                    <div style="width:8px;"></div>
+                    <div class="label" style="width:auto;color:var(--end)">✂️ 终点:</div>
+                    <input type="number" id="trimEnd" class="time-input" value="0.00" step="0.1" min="0">
+                </div>
+                <div class="cut-row">
+                    <button class="btn-preview" id="btnPlaySeg">▶ 预览选中片段</button>
+                </div>
+            </div>
+
+            <div class="split-panel">
+                <span style="font-size:.9em;font-weight:bold;color:#f39c12">📂 自动分段:</span>
+                <span style="font-size:.85em;color:#666">切分为</span>
+                <input type="number" id="splitCount" class="input-mini" value="2" min="2">
+                <span style="font-size:.85em;color:#666">段</span>
+                <button class="btn-split" id="btnBatchSplit">⚡ 批量切分并下载</button>
+            </div>
+
+            <div class="export-panel">
+                <div class="setting-grid">
+                    <div class="setting-item">
+                        <label>格式</label>
+                        <select id="exportFormat"><option value="mp3">MP3</option><option value="wav">WAV</option></select>
+                    </div>
+                    <div class="setting-item" id="bitrateGroup">
+                        <label>码率</label>
+                        <select id="exportBitrate">
+                            <option value="320">320k</option><option value="128" selected>128k</option><option value="64">64k</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>采样率</label>
+                        <select id="exportRate">
+                            <option value="original">原始</option><option value="44100">44100Hz</option><option value="22050">22050Hz</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>声道</label>
+                        <select id="exportChannels"><option value="original">原始</option><option value="1">单声道</option></select>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <span style="font-size:.85em;color:#7f8c8d;font-weight:bold" id="estSizeDisplay">预估大小: -</span>
+                </div>
+                <button class="btn-dl" id="btnDownload">💾 导出当前片段</button>
+            </div>
+        </div>
     </div>
 
-    <div id="workspace" class="hidden">
-        <div class="info-bar">
-            <div class="info-item"><b>文件:</b> <span id="mName">-</span></div>
-            <div class="info-item"><b>时长:</b> <span id="mDur">-</span></div>
-            <div class="info-item"><b>格式:</b> <span id="mParams">-</span></div>
-            <div class="tag" id="mBitrate">- kbps</div>
+    <!-- ===== MERGE SECTION ===== -->
+    <div class="card">
+        <div class="merge-header">
+            <h2>🔗 多文件合并</h2>
+            <span style="font-size:.8em;color:#999">拖拽排序 · 支持所有音频格式</span>
         </div>
 
-        <div class="tips">
-            🖱️ <b>单击</b>波形：立即从点击处播放 | 🖱️🖱️ <b>双击</b>波形：依次设置 <span style="color:var(--start)">起点</span> 和 <span style="color:var(--end)">终点</span>
-        </div>
-
-        <!-- 波形图容器 -->
-        <div class="vis-container" id="waveformBox">
-            <canvas id="visualizer"></canvas>
-            <div id="playHead" class="play-head"></div>
-        </div>
-
-        <div class="row" style="margin-top:5px; margin-bottom: 5px;">
-            <button class="btn-reset" id="btnStop" style="background:#95a5a6; color:white; border:none; padding:8px 15px;">⏹ 停止播放</button>
-            <span id="timeDisplay" style="font-family:monospace; margin-left:auto; color:#2c3e50; font-weight:bold; font-size:1.1em;">00:00.00</span>
-        </div>
-
-        <div class="control-group" style="margin-top:5px;">
-            <div class="row">
-                <div class="label">🚀 变速</div>
-                <input type="range" id="rateInput" min="0.5" max="2.0" step="0.1" value="1.0">
-                <div class="val-badge" id="rateVal">1.0x</div>
+        <div class="upload-box merge-box" onclick="document.getElementById('mergeFileInput').click()">
+            <div class="upload-icon">📂</div>
+            <div class="upload-text">
+                <h3>点击选择多个音频文件</h3>
+                <p>MP3, WAV, M4A, AAC, FLAC, OGG 均可 · 可多次添加</p>
             </div>
-            <div class="row">
-                <div class="label">🔊 音量</div>
-                <input type="range" id="volInput" min="0" max="3" step="0.1" value="1.0">
-                <div class="val-badge" id="volVal">100%</div>
-            </div>
-            <div class="row">
-                <div class="label">👻 特效</div>
-                <input type="checkbox" id="reverseCheck" style="margin:0;">
-                <label for="reverseCheck" style="font-size:0.9em; margin:0;">倒放选区</label>
-            </div>
+            <input type="file" id="mergeFileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac,.ogg" multiple style="display:none">
         </div>
 
-        <div class="cut-panel">
-            <div class="cut-row">
-                <div class="label" style="width:auto; color:var(--start)">✂️ 起点:</div>
-                <input type="number" id="trimStart" class="time-input" value="0.00" step="0.1" min="0">
-                
-                <div style="width:10px;"></div>
-                
-                <div class="label" style="width:auto; color:var(--end)">✂️ 终点:</div>
-                <input type="number" id="trimEnd" class="time-input" value="0.00" step="0.1" min="0">
+        <div id="mergeFileList" class="merge-file-list">
+            <div class="merge-empty" id="mergeEmpty">还没有文件 — 点击上方添加</div>
+        </div>
+
+        <div class="sort-hint" id="mergeSortHint" style="display:none">⬆⬇ 拖拽文件条目可调整顺序</div>
+
+        <div class="merge-format-row">
+            <div class="setting-item">
+                <label>导出格式</label>
+                <select id="mergeFormat"><option value="mp3">MP3</option><option value="wav">WAV</option></select>
             </div>
-            <div class="cut-row" style="margin-top:5px;">
-                <button class="btn-preview" id="btnPlaySeg">▶ 预览选中片段 (Preview Selection)</button>
+            <div class="setting-item" id="mergeBitrateGroup">
+                <label>码率</label>
+                <select id="mergeBitrate">
+                    <option value="320">320k</option><option value="128" selected>128k</option><option value="64">64k</option>
+                </select>
+            </div>
+            <div class="setting-item">
+                <label>采样率</label>
+                <select id="mergeRate">
+                    <option value="auto">自动(首文件)</option>
+                    <option value="44100">44100 Hz</option>
+                    <option value="22050">22050 Hz</option>
+                </select>
             </div>
         </div>
 
-        <div class="split-panel">
-            <span style="font-size:0.9em; font-weight:bold; color:#f39c12">📂 自动分段:</span>
-            <span style="font-size:0.85em; color:#666;">切分为</span>
-            <input type="number" id="splitCount" class="input-mini" value="2" min="2" step="1">
-            <span style="font-size:0.85em; color:#666;">段</span>
-            <button class="btn-split" id="btnBatchSplit">⚡ 批量切分并下载</button>
-        </div>
-
-        <div class="export-panel">
-            <div class="setting-grid">
-                <div class="setting-item">
-                    <label>格式</label>
-                    <select id="exportFormat"><option value="mp3">MP3</option><option value="wav">WAV</option></select>
-                </div>
-                <div class="setting-item" id="bitrateGroup">
-                    <label>码率</label>
-                    <select id="exportBitrate">
-                        <option value="320">320k</option><option value="128" selected>128k</option><option value="64">64k</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <label>采样率</label>
-                    <select id="exportRate">
-                        <option value="original">原始</option><option value="44100">44100Hz</option><option value="22050">22050Hz</option>
-                    </select>
-                </div>
-                <div class="setting-item">
-                    <label>声道</label>
-                    <select id="exportChannels"><option value="original">原始</option><option value="1">单声道</option></select>
-                </div>
-            </div>
-            
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                <span style="font-size:0.85em; color:#7f8c8d; font-weight:bold;" id="estSizeDisplay">预估大小: -</span>
-            </div>
-            <button class="btn-dl" id="btnDownload">💾 导出当前片段</button>
+        <div class="merge-controls">
+            <span class="merge-info" id="mergeInfo">0 个文件，共 0.0 秒</span>
+            <button class="btn-clear-merge" onclick="clearMergeFiles()">🗑 清空</button>
+            <button class="btn-merge" id="btnMerge" disabled onclick="doMerge()">🔗 合并并下载</button>
         </div>
     </div>
-</div>
+
+</div><!-- /container -->
 
 <script>
-    let audioCtx;
-    let originalBuffer = null; 
-    let sourceNode = null;
-    let gainNode = null;
-    
-    let isPlaying = false;
-    let startTime = 0;      
-    let startOffset = 0;    
-    let playMode = 'full';  // 'full' | 'segment'
-    
-    // 双击逻辑状态
-    let nextClickIsStart = true; // true=设起点, false=设终点
+// ==========================================
+//  SHARED STATE
+// ==========================================
+let audioCtx;
+function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+}
 
-    let rawFileName = "audio"; 
-    let rawFileSize = 0; 
+const el = id => document.getElementById(id);
+const fmt = (s, f=2) => s.toFixed(f);
 
-    const el = (id) => document.getElementById(id);
-    const UI = {
-        file: el('fileInput'),
-        workspace: el('workspace'),
-        btnSeg: el('btnPlaySeg'),
-        btnStop: el('btnStop'),
-        tStart: el('trimStart'),
-        tEnd: el('trimEnd'),
-        head: el('playHead'),
-        time: el('timeDisplay'),
-        cvsBox: el('waveformBox'),
-        cvs: el('visualizer'),
-        rate: el('rateInput'),
-        rateVal: el('rateVal'),
-        vol: el('volInput'),
-        volVal: el('volVal'),
-        rev: el('reverseCheck'),
-        fmt: el('exportFormat'),
-        br: el('exportBitrate'),
-        est: el('estSizeDisplay'),
-        splitN: el('splitCount'),
-        btnSplit: el('btnBatchSplit'),
-        btnDl: el('btnDownload')
-    };
+function showLoader(t, prog='') { el('loader').style.display='flex'; el('loaderText').innerText=t; el('loaderProgress').innerText=prog; }
+function setLoaderProg(t) { el('loaderProgress').innerText=t; }
+function hideLoader() { el('loader').style.display='none'; }
 
-    // 1. 初始化
-    UI.file.addEventListener('change', async function() {
-        if(!this.files.length) return;
-        const file = this.files[0];
-        this.value = ''; 
-        showLoader('正在解码...');
-        rawFileSize = file.size;
-        rawFileName = file.name.replace(/\.[^/.]+$/, ""); 
+function triggerDownload(blob, name) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 2000);
+}
 
-        try {
-            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if(audioCtx.state === 'suspended') await audioCtx.resume();
+function formatTimeFull(s) {
+    const m=Math.floor(s/60), sec=Math.floor(s%60), ms=Math.floor((s%1)*100);
+    return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}.${ms.toString().padStart(2,'0')}`;
+}
 
-            const arrayBuf = await file.arrayBuffer();
-            originalBuffer = await audioCtx.decodeAudioData(arrayBuf);
+// ==========================================
+//  MP3 / WAV ENCODE
+// ==========================================
+function bufferToMp3(buf, kbps) {
+    const enc = new lamejs.Mp3Encoder(buf.numberOfChannels, buf.sampleRate, kbps);
+    const d = [];
+    const l = buf.getChannelData(0);
+    const r = buf.numberOfChannels > 1 ? buf.getChannelData(1) : undefined;
+    const conv = a => { const i=new Int16Array(a.length); for(let k=0;k<a.length;k++){let v=Math.max(-1,Math.min(1,a[k]));i[k]=v<0?v*0x8000:v*0x7FFF;} return i; };
+    const lD=conv(l), rD=r?conv(r):undefined, bs=1152;
+    for(let i=0;i<lD.length;i+=bs){const b=enc.encodeBuffer(lD.subarray(i,i+bs),rD?rD.subarray(i,i+bs):undefined);if(b.length>0)d.push(b);}
+    const f=enc.flush(); if(f.length>0)d.push(f);
+    return new Blob(d,{type:'audio/mp3'});
+}
 
-            el('mName').innerText = file.name;
-            el('mDur').innerText = formatTimeFull(originalBuffer.duration).split('.')[0];
-            el('mParams').innerText = `${originalBuffer.sampleRate}Hz/${originalBuffer.numberOfChannels}ch`;
-            const estKbps = Math.round((file.size * 8) / originalBuffer.duration / 1000);
-            el('mBitrate').innerText = `~${estKbps}kbps`;
+function bufferToWave(b, len) {
+    const c=b.numberOfChannels, l=len*c*2+44, bf=new ArrayBuffer(l), v=new DataView(bf);
+    let p=0;
+    const u16=x=>{v.setUint16(p,x,true);p+=2;};
+    const u32=x=>{v.setUint32(p,x,true);p+=4;};
+    u32(0x46464952);u32(l-8);u32(0x45564157);u32(0x20746d66);u32(16);u16(1);u16(c);
+    u32(b.sampleRate);u32(b.sampleRate*2*c);u16(c*2);u16(16);u32(0x61746164);u32(l-p-4);
+    const chs=[]; for(let i=0;i<c;i++) chs.push(b.getChannelData(i));
+    while(p<l){for(let i=0;i<c;i++){let s=Math.max(-1,Math.min(1,chs[i][(p-44)/2/c]));s=(s<0?s*32768:s*32767)|0;v.setInt16(p,s,true);p+=2;}}
+    return new Blob([bf],{type:'audio/wav'});
+}
 
-            UI.tStart.value = "0.00";
-            UI.tEnd.value = originalBuffer.duration.toFixed(2);
-            nextClickIsStart = true;
+// ==========================================
+//  SINGLE FILE EDITOR
+// ==========================================
+let originalBuffer = null;
+let sourceNode = null, gainNode = null;
+let isPlaying = false, startTime = 0, startOffset = 0, playMode = 'full';
+let nextClickIsStart = true;
+let rawFileName = "audio";
 
-            el('workspace').classList.remove('hidden');
-            stopAudio();
-            drawStaticWave();
-            updateEstimate();
+const UI = {
+    file:      el('fileInput'),
+    workspace: el('workspace'),
+    btnSeg:    el('btnPlaySeg'),
+    btnStop:   el('btnStop'),
+    tStart:    el('trimStart'),
+    tEnd:      el('trimEnd'),
+    head:      el('playHead'),
+    time:      el('timeDisplay'),
+    cvsBox:    el('waveformBox'),
+    cvs:       el('visualizer'),
+    rate:      el('rateInput'),
+    rateVal:   el('rateVal'),
+    vol:       el('volInput'),
+    volVal:    el('volVal'),
+    rev:       el('reverseCheck'),
+    fmt:       el('exportFormat'),
+    br:        el('exportBitrate'),
+    est:       el('estSizeDisplay'),
+    splitN:    el('splitCount'),
+    btnSplit:  el('btnBatchSplit'),
+    btnDl:     el('btnDownload'),
+};
 
-        } catch(e) { alert('错误: '+e.message); } finally { hideLoader(); }
-    });
-
-    // 2. 实时交互逻辑 (核心修复)
-    // 监听 input 事件实现实时反馈
-    UI.rate.addEventListener('input', function() {
-        const val = parseFloat(this.value);
-        UI.rateVal.innerText = val + 'x';
-        // 实时修改正在播放的音频
-        if(isPlaying && sourceNode) {
-            sourceNode.playbackRate.value = val;
-        }
-        updateEstimate();
-    });
-
-    UI.vol.addEventListener('input', function() {
-        const val = parseFloat(this.value);
-        UI.volVal.innerText = Math.round(val * 100) + '%';
-        // 实时修改正在播放的音量
-        if(isPlaying && gainNode) {
-            gainNode.gain.value = val;
-        }
-    });
-
-    // 3. 鼠标交互 (单击播放，双击设点)
-    UI.cvsBox.addEventListener('click', (e) => {
-        // 单击逻辑: 跳转并播放
-        if(!originalBuffer) return;
-        const rect = UI.cvsBox.getBoundingClientRect();
-        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        const seekTime = percent * originalBuffer.duration;
-        
-        startOffset = seekTime;
-        playMode = 'full';
-        
-        // 无论当前是否播放，都从新位置重新开始播放
-        stopAudio(false, false); // 不重置offset
-        playAudio('full');
-    });
-
-    UI.cvsBox.addEventListener('dblclick', (e) => {
-        // 双击逻辑: 设点
-        e.stopPropagation(); // 防止冒泡
-        if(!originalBuffer) return;
-        const rect = UI.cvsBox.getBoundingClientRect();
-        const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-        const clickTime = percent * originalBuffer.duration;
-
-        if(nextClickIsStart) {
-            // 设起点
-            if(clickTime >= parseFloat(UI.tEnd.value)) UI.tEnd.value = originalBuffer.duration.toFixed(2);
-            UI.tStart.value = clickTime.toFixed(2);
-            nextClickIsStart = false; // 下次设终点
-        } else {
-            // 设终点
-            if(clickTime <= parseFloat(UI.tStart.value)) { 
-                alert("终点不能早于起点"); return; 
-            }
-            UI.tEnd.value = clickTime.toFixed(2);
-            nextClickIsStart = true; // 下次设起点
-        }
-        drawStaticWave();
-        updateEstimate();
-    });
-
-    // 4. 播放控制
-    UI.btnSeg.addEventListener('click', () => {
-        if(isPlaying && playMode === 'segment') stopAudio();
-        else {
-            stopAudio();
-            playAudio('segment');
-        }
-    });
-    UI.btnStop.addEventListener('click', () => stopAudio());
-
-    function playAudio(mode) {
-        if(!originalBuffer) return;
-        playMode = mode;
-        
-        let bufferToPlay = originalBuffer;
-        let playStart = 0; 
-        let duration = originalBuffer.duration;
-
-        if(mode === 'segment') {
-            const seg = getSegmentBuffer(UI.rev.checked);
-            if(!seg) return;
-            bufferToPlay = seg;
-            duration = seg.duration;
-            playStart = 0; 
-        } else {
-            playStart = startOffset; 
-        }
-
-        sourceNode = audioCtx.createBufferSource();
-        sourceNode.buffer = bufferToPlay;
-        sourceNode.playbackRate.value = UI.rate.value; // 应用当前速度
-        
-        gainNode = audioCtx.createGain();
-        gainNode.gain.value = UI.vol.value; // 应用当前音量
-        
-        sourceNode.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        
-        startTime = audioCtx.currentTime;
-        sourceNode.start(0, playStart);
-        isPlaying = true;
-
-        if(mode === 'segment') UI.btnSeg.innerText = "⏹ 停止预览";
-        
-        requestAnimationFrame(updatePlayHead);
-
-        sourceNode.onended = () => {
-            const playedTime = (audioCtx.currentTime - startTime) * parseFloat(UI.rate.value);
-            if(playedTime >= duration - playStart - 0.1) stopAudio(true);
-        };
-    }
-
-    function stopAudio(reset = false, updateOffset = true) {
-        if(sourceNode) try{sourceNode.stop()}catch(e){}
-        
-        if(isPlaying && playMode === 'full' && updateOffset) {
-            const elapsed = (audioCtx.currentTime - startTime) * parseFloat(UI.rate.value);
-            startOffset += elapsed;
-            if(startOffset >= originalBuffer.duration || reset) startOffset = 0;
-        }
-        
-        isPlaying = false;
-        UI.btnSeg.innerText = "▶ 预览选中片段 (Preview Selection)";
-        
-        if(playMode === 'full') updatePlayHeadUI(startOffset);
-        else UI.head.style.display = 'none';
-
-        drawStaticWave();
-    }
-
-    // 5. 可视化绘制
-    function updatePlayHead() {
-        if(!isPlaying) return;
-        requestAnimationFrame(updatePlayHead);
-        
-        const rate = parseFloat(UI.rate.value);
-        let currentSec = (audioCtx.currentTime - startTime) * rate;
-        
-        if(playMode === 'full') {
-            currentSec += startOffset;
-            UI.time.innerText = formatTimeFull(currentSec);
-            const percent = currentSec / originalBuffer.duration;
-            UI.head.style.display = 'block';
-            UI.head.style.left = (percent * 100) + '%';
-        } else {
-            UI.time.innerText = "预览: " + formatTimeFull(currentSec);
-            UI.head.style.display = 'none'; 
-        }
-    }
-
-    function updatePlayHeadUI(time) {
-        if(!originalBuffer) return;
-        const percent = time / originalBuffer.duration;
-        UI.head.style.display = 'block';
-        UI.head.style.left = (percent * 100) + '%';
-    }
-
-    function drawStaticWave() {
-        const cvs = UI.cvs;
-        const ctx = cvs.getContext('2d');
-        const w = cvs.width = cvs.clientWidth; 
-        const h = cvs.height = cvs.clientHeight;
-        
-        ctx.clearRect(0,0,w,h);
-        ctx.fillStyle = '#f0f3f5'; ctx.fillRect(0,0,w,h);
-        if(!originalBuffer) return;
-
-        const data = originalBuffer.getChannelData(0);
-        const step = Math.ceil(data.length/w);
-        const amp = h/2;
-        
-        const dur = originalBuffer.duration;
-        const s = parseFloat(UI.tStart.value);
-        const e = parseFloat(UI.tEnd.value);
-        const xS = (s/dur)*w;
-        const xE = (e/dur)*w;
-        
-        // 绘制波形
-        ctx.beginPath();
-        for(let i=0; i<w; i++){
-            let min=1.0, max=-1.0;
-            for(let j=0; j<step; j++){
-                let v=data[i*step+j]; if(v<min)min=v; if(v>max)max=v;
-            }
-            if(i<xS || i>xE) ctx.fillStyle = '#bdc3c7'; // 灰色(未选)
-            else ctx.fillStyle = '#3498db'; // 蓝色(选中)
-            ctx.fillRect(i, (1+min)*amp, 1, Math.max(1,(max-min)*amp));
-        }
-
-        // 绘制起止线
-        // 起点线 (绿)
-        ctx.fillStyle = '#27ae60';
-        ctx.fillRect(xS, 0, 2, h);
-        // 终点线 (红)
-        ctx.fillStyle = '#c0392b';
-        ctx.fillRect(xE, 0, 2, h);
-        
-        // 遮罩
-        ctx.fillStyle = 'rgba(0,0,0,0.05)';
-        ctx.fillRect(0,0,xS,h);
-        ctx.fillRect(xE,0,w-xE,h);
-    }
-
-    // 辅助功能
-    UI.tStart.addEventListener('change', () => { validateTime(); drawStaticWave(); updateEstimate(); nextClickIsStart=false; });
-    UI.tEnd.addEventListener('change', () => { validateTime(); drawStaticWave(); updateEstimate(); nextClickIsStart=true; });
-    function validateTime() {
-        let s = parseFloat(UI.tStart.value);
-        let e = parseFloat(UI.tEnd.value);
-        if(s<0) s=0; if(e>originalBuffer.duration) e=originalBuffer.duration;
-        if(s>=e) s = e - 0.1;
-        UI.tStart.value=s.toFixed(2); UI.tEnd.value=e.toFixed(2);
-    }
-
-    UI.btnSplit.addEventListener('click', async () => {
-        if(!originalBuffer) return;
-        const n = parseInt(UI.splitN.value);
-        if(n < 2) return;
-        showLoader(`正在批量切分为 ${n} 段...`);
-        try {
-            const totalDur = originalBuffer.duration;
-            const segDur = totalDur / n;
-            for(let i=0; i<n; i++) {
-                const blob = await renderSegmentToBlob(i * segDur, (i+1) * segDur);
-                const fname = `${rawFileName}_part${i+1}.${el('exportFormat').value}`;
-                triggerDownload(blob, fname);
-                await new Promise(r => setTimeout(r, 500));
-            }
-        } catch(e) { alert('分段失败: ' + e); } finally { hideLoader(); }
-    });
-
-    UI.btnDl.addEventListener('click', async () => {
-        if(!originalBuffer) return;
-        showLoader('正在导出...');
-        try {
-            const s = parseFloat(UI.tStart.value);
-            const e = parseFloat(UI.tEnd.value);
-            const blob = await renderSegmentToBlob(s, e);
-            const ext = el('exportFormat').value;
-            triggerDownload(blob, `${rawFileName}_cut.${ext}`);
-        } catch(e) { alert(e); } finally { hideLoader(); }
-    });
-
-    // 渲染函数
-    async function renderSegmentToBlob(startTime, endTime) {
-        const dur = endTime - startTime;
-        if(dur <= 0) throw new Error("时长无效");
-        const rate = parseFloat(UI.rate.value);
-        const vol = parseFloat(UI.vol.value);
-        const isRev = UI.rev.checked;
-        let tSR = el('exportRate').value==='original' ? originalBuffer.sampleRate : parseInt(el('exportRate').value);
-        let tCh = el('exportChannels').value==='original' ? originalBuffer.numberOfChannels : parseInt(el('exportChannels').value);
-        const renderDur = dur / rate;
-        const offCtx = new OfflineAudioContext(tCh, renderDur * tSR, tSR);
-        const cutBuf = audioCtx.createBuffer(originalBuffer.numberOfChannels, Math.floor(dur * originalBuffer.sampleRate), originalBuffer.sampleRate);
-        const startFrame = Math.floor(startTime * originalBuffer.sampleRate);
-        for(let i=0; i<originalBuffer.numberOfChannels; i++) {
-            const old = originalBuffer.getChannelData(i);
-            const curr = cutBuf.getChannelData(i);
-            for(let j=0; j<cutBuf.length; j++) curr[j] = old[startFrame+j] || 0;
-            if(isRev) Array.prototype.reverse.call(curr);
-        }
-        const src = offCtx.createBufferSource();
-        src.buffer = cutBuf; src.playbackRate.value = rate;
-        const gain = offCtx.createGain(); gain.gain.value = vol;
-        src.connect(gain); gain.connect(offCtx.destination); src.start(0);
-        const rendered = await offCtx.startRendering();
-        if(el('exportFormat').value === 'mp3') return bufferToMp3(rendered, parseInt(UI.br.value));
-        else return bufferToWave(rendered, rendered.length);
-    }
-    
-    function getSegmentBuffer(isRev) {
-        const s = parseFloat(UI.tStart.value);
-        const e = parseFloat(UI.tEnd.value);
-        const dur = e-s; if(dur<=0) return null;
-        const f = Math.floor(dur*originalBuffer.sampleRate);
-        const b = audioCtx.createBuffer(originalBuffer.numberOfChannels, f, originalBuffer.sampleRate);
-        const startF = Math.floor(s*originalBuffer.sampleRate);
-        for(let i=0; i<b.numberOfChannels; i++){
-            const o = originalBuffer.getChannelData(i);
-            const n = b.getChannelData(i);
-            for(let k=0; k<f; k++) n[k] = o[startF+k]||0;
-            if(isRev) Array.prototype.reverse.call(n);
-        }
-        return b;
-    }
-
-    function triggerDownload(blob, name) {
-        const url = URL.createObjectURL(blob); const a = document.createElement('a');
-        a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    }
-    function resetParams() {
-        if(!originalBuffer) return;
-        UI.rate.value=1; el('rateVal').innerText="1.0x";
-        UI.vol.value=1; el('volVal').innerText="100%";
-        UI.rev.checked=false;
-        UI.tStart.value="0.00"; UI.tEnd.value=originalBuffer.duration.toFixed(2);
+UI.file.addEventListener('change', async function() {
+    if (!this.files.length) return;
+    const file = this.files[0]; this.value='';
+    showLoader('正在解码...');
+    rawFileName = file.name.replace(/\.[^/.]+$/,'');
+    try {
+        const ctx = getAudioCtx();
+        const ab = await file.arrayBuffer();
+        originalBuffer = await ctx.decodeAudioData(ab);
+        el('mName').innerText = file.name;
+        el('mDur').innerText  = formatTimeFull(originalBuffer.duration).split('.')[0];
+        el('mParams').innerText = `${originalBuffer.sampleRate}Hz / ${originalBuffer.numberOfChannels}ch`;
+        el('mBitrate').innerText = `~${Math.round((file.size*8)/originalBuffer.duration/1000)}kbps`;
+        UI.tStart.value='0.00';
+        UI.tEnd.value=fmt(originalBuffer.duration);
+        nextClickIsStart=true;
+        UI.workspace.classList.remove('hidden');
         stopAudio();
-        drawStaticWave(); updateEstimate();
+        drawStaticWave();
+        updateEstimate();
+    } catch(e) { alert('解码失败: '+e.message); } finally { hideLoader(); }
+});
+
+// ---- Live rate/volume ----
+UI.rate.addEventListener('input', function() {
+    const val = parseFloat(this.value);
+    UI.rateVal.innerText = val.toFixed(2)+'x';
+    if (isPlaying && sourceNode) sourceNode.playbackRate.value = val;
+    updateEstimate();
+});
+UI.vol.addEventListener('input', function() {
+    const val = parseFloat(this.value);
+    UI.volVal.innerText = Math.round(val*100)+'%';
+    if (isPlaying && gainNode) gainNode.gain.value = val;
+});
+
+// ---- Wave click / dblclick ----
+UI.cvsBox.addEventListener('click', e => {
+    if (!originalBuffer) return;
+    const pct = getClickPct(e);
+    startOffset = pct * originalBuffer.duration;
+    playMode = 'full';
+    stopAudio(false, false);
+    playAudio('full');
+});
+
+UI.cvsBox.addEventListener('dblclick', e => {
+    e.stopPropagation();
+    if (!originalBuffer) return;
+    const t = getClickPct(e) * originalBuffer.duration;
+    if (nextClickIsStart) {
+        if (t >= parseFloat(UI.tEnd.value)) UI.tEnd.value = fmt(originalBuffer.duration);
+        UI.tStart.value = fmt(t);
+        nextClickIsStart = false;
+    } else {
+        if (t <= parseFloat(UI.tStart.value)) { alert('终点不能早于起点'); return; }
+        UI.tEnd.value = fmt(t);
+        nextClickIsStart = true;
     }
-    function updateEstimate() {
-        if(!originalBuffer) return;
-        const dur = Math.max(0, parseFloat(UI.tEnd.value)-parseFloat(UI.tStart.value));
-        const rDur = dur / parseFloat(UI.rate.value);
-        let bytes=0;
-        if(UI.fmt.value==='mp3') bytes = (rDur * parseInt(UI.br.value) * 1000)/8;
-        else {
-            let sr = el('exportRate').value==='original'?originalBuffer.sampleRate:parseInt(el('exportRate').value);
-            let ch = el('exportChannels').value==='original'?originalBuffer.numberOfChannels:parseInt(el('exportChannels').value);
-            bytes = rDur*sr*ch*2+44;
+    drawStaticWave(); updateEstimate();
+});
+
+function getClickPct(e) {
+    const r = UI.cvsBox.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+}
+
+// ---- Playback ----
+UI.btnSeg.addEventListener('click', () => {
+    if (isPlaying && playMode==='segment') stopAudio();
+    else { stopAudio(); playAudio('segment'); }
+});
+UI.btnStop.addEventListener('click', () => stopAudio());
+
+function playAudio(mode) {
+    if (!originalBuffer) return;
+    const ctx = getAudioCtx();
+    playMode = mode;
+    let bufToPlay = originalBuffer, playStart = 0;
+
+    if (mode === 'segment') {
+        const seg = getSegmentBuffer(UI.rev.checked);
+        if (!seg) return;
+        bufToPlay = seg;
+    } else {
+        playStart = startOffset;
+    }
+
+    sourceNode = ctx.createBufferSource();
+    sourceNode.buffer = bufToPlay;
+
+    // ★ PITCH-PRESERVING SPEED ★
+    const rate = parseFloat(UI.rate.value);
+    sourceNode.playbackRate.value = rate;
+    sourceNode.preservesPitch = true;
+    if ('webkitPreservesPitch' in sourceNode) sourceNode.webkitPreservesPitch = true;
+
+    gainNode = ctx.createGain();
+    gainNode.gain.value = parseFloat(UI.vol.value);
+    sourceNode.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    startTime = ctx.currentTime;
+    sourceNode.start(0, playStart);
+    isPlaying = true;
+    if (mode==='segment') UI.btnSeg.innerText='⏹ 停止预览';
+    requestAnimationFrame(updatePlayHead);
+
+    sourceNode.onended = () => {
+        const played = (ctx.currentTime - startTime) * rate;
+        const dur = bufToPlay.duration - playStart;
+        if (played >= dur - 0.1) stopAudio(true);
+    };
+}
+
+function stopAudio(reset=false, updateOffset=true) {
+    if (sourceNode) try { sourceNode.stop(); } catch(e) {}
+    if (isPlaying && playMode==='full' && updateOffset && audioCtx) {
+        const elapsed = (audioCtx.currentTime - startTime) * parseFloat(UI.rate.value);
+        startOffset += elapsed;
+        if (startOffset >= originalBuffer.duration || reset) startOffset = 0;
+    }
+    isPlaying = false;
+    UI.btnSeg.innerText = '▶ 预览选中片段';
+    if (playMode==='full') updatePlayHeadUI(startOffset);
+    else UI.head.style.display = 'none';
+    drawStaticWave();
+}
+
+function updatePlayHead() {
+    if (!isPlaying) return;
+    requestAnimationFrame(updatePlayHead);
+    const rate = parseFloat(UI.rate.value);
+    let cur = (audioCtx.currentTime - startTime) * rate;
+    if (playMode==='full') {
+        cur += startOffset;
+        UI.time.innerText = formatTimeFull(cur);
+        UI.head.style.display = 'block';
+        UI.head.style.left = (cur/originalBuffer.duration*100)+'%';
+    } else {
+        UI.time.innerText = '预览: '+formatTimeFull(cur);
+        UI.head.style.display = 'none';
+    }
+}
+
+function updatePlayHeadUI(time) {
+    if (!originalBuffer) return;
+    UI.head.style.display = 'block';
+    UI.head.style.left = (time/originalBuffer.duration*100)+'%';
+}
+
+// ---- Waveform ----
+function drawStaticWave() {
+    const cvs=UI.cvs, ctx=cvs.getContext('2d');
+    const w=cvs.width=cvs.clientWidth, h=cvs.height=cvs.clientHeight;
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#f0f3f5'; ctx.fillRect(0,0,w,h);
+    if (!originalBuffer) return;
+    const data=originalBuffer.getChannelData(0), step=Math.ceil(data.length/w), amp=h/2;
+    const dur=originalBuffer.duration, s=parseFloat(UI.tStart.value), e=parseFloat(UI.tEnd.value);
+    const xS=(s/dur)*w, xE=(e/dur)*w;
+    for (let i=0;i<w;i++) {
+        let mn=1,mx=-1;
+        for (let j=0;j<step;j++){const v=data[i*step+j];if(v<mn)mn=v;if(v>mx)mx=v;}
+        ctx.fillStyle = (i<xS||i>xE) ? '#bdc3c7' : '#3498db';
+        ctx.fillRect(i,(1+mn)*amp,1,Math.max(1,(mx-mn)*amp));
+    }
+    ctx.fillStyle='#27ae60'; ctx.fillRect(xS,0,2,h);
+    ctx.fillStyle='#c0392b'; ctx.fillRect(xE,0,2,h);
+    ctx.fillStyle='rgba(0,0,0,0.05)';
+    ctx.fillRect(0,0,xS,h); ctx.fillRect(xE,0,w-xE,h);
+}
+
+// ---- Segment buffer ----
+function getSegmentBuffer(isRev) {
+    const s=parseFloat(UI.tStart.value), e=parseFloat(UI.tEnd.value), dur=e-s;
+    if (dur<=0) return null;
+    const ctx=getAudioCtx();
+    const f=Math.floor(dur*originalBuffer.sampleRate);
+    const b=ctx.createBuffer(originalBuffer.numberOfChannels,f,originalBuffer.sampleRate);
+    const sf=Math.floor(s*originalBuffer.sampleRate);
+    for (let i=0;i<b.numberOfChannels;i++) {
+        const o=originalBuffer.getChannelData(i), n=b.getChannelData(i);
+        for (let k=0;k<f;k++) n[k]=o[sf+k]||0;
+        if (isRev) Array.prototype.reverse.call(n);
+    }
+    return b;
+}
+
+// ---- Time inputs ----
+UI.tStart.addEventListener('change', ()=>{validateTime();drawStaticWave();updateEstimate();nextClickIsStart=false;});
+UI.tEnd.addEventListener('change',   ()=>{validateTime();drawStaticWave();updateEstimate();nextClickIsStart=true;});
+
+function validateTime() {
+    let s=parseFloat(UI.tStart.value), e=parseFloat(UI.tEnd.value);
+    if (s<0) s=0; if (e>originalBuffer.duration) e=originalBuffer.duration;
+    if (s>=e) s=e-0.1;
+    UI.tStart.value=fmt(s); UI.tEnd.value=fmt(e);
+}
+
+// ---- Estimate ----
+function updateEstimate() {
+    if (!originalBuffer) return;
+    const dur=Math.max(0,parseFloat(UI.tEnd.value)-parseFloat(UI.tStart.value));
+    const rDur=dur/parseFloat(UI.rate.value);
+    let bytes=0;
+    if (UI.fmt.value==='mp3') bytes=(rDur*parseInt(UI.br.value)*1000)/8;
+    else {
+        const sr=el('exportRate').value==='original'?originalBuffer.sampleRate:parseInt(el('exportRate').value);
+        const ch=el('exportChannels').value==='original'?originalBuffer.numberOfChannels:parseInt(el('exportChannels').value);
+        bytes=rDur*sr*ch*2+44;
+    }
+    UI.est.innerText=`预估: ${(bytes/1024/1024).toFixed(2)} MB`;
+}
+[UI.fmt, UI.br, el('exportRate'), el('exportChannels')].forEach(i=>{
+    i.addEventListener('change',updateEstimate);
+});
+UI.fmt.addEventListener('change',()=>{
+    const m=UI.fmt.value==='mp3';
+    el('bitrateGroup').style.opacity=m?'1':'0.3';
+    UI.br.disabled=!m;
+});
+
+// ---- Render to blob ★ PITCH-PRESERVING via preservesPitch in OfflineAudioContext ★ ----
+async function renderSegmentToBlob(startSec, endSec) {
+    const dur=endSec-startSec;
+    if (dur<=0) throw new Error('时长无效');
+    const ctx=getAudioCtx();
+    const rate=parseFloat(UI.rate.value), vol=parseFloat(UI.vol.value), isRev=UI.rev.checked;
+    const tSR=el('exportRate').value==='original'?originalBuffer.sampleRate:parseInt(el('exportRate').value);
+    const tCh=el('exportChannels').value==='original'?originalBuffer.numberOfChannels:parseInt(el('exportChannels').value);
+
+    // 1. Cut segment
+    const cutBuf=ctx.createBuffer(originalBuffer.numberOfChannels,Math.floor(dur*originalBuffer.sampleRate),originalBuffer.sampleRate);
+    const sf=Math.floor(startSec*originalBuffer.sampleRate);
+    for(let i=0;i<originalBuffer.numberOfChannels;i++){
+        const o=originalBuffer.getChannelData(i), n=cutBuf.getChannelData(i);
+        for(let j=0;j<cutBuf.length;j++) n[j]=o[sf+j]||0;
+        if(isRev) Array.prototype.reverse.call(n);
+    }
+
+    // 2. Render with pitch-preserving speed change
+    const renderDur = dur / rate;
+    const offCtx = new OfflineAudioContext(tCh, Math.ceil(renderDur*tSR), tSR);
+    const src = offCtx.createBufferSource();
+    src.buffer = cutBuf;
+    src.playbackRate.value = rate;
+    // ★ pitch preservation ★
+    src.preservesPitch = true;
+    if ('webkitPreservesPitch' in src) src.webkitPreservesPitch = true;
+
+    const gain = offCtx.createGain(); gain.gain.value = vol;
+    src.connect(gain); gain.connect(offCtx.destination); src.start(0);
+    const rendered = await offCtx.startRendering();
+
+    if (el('exportFormat').value==='mp3') return bufferToMp3(rendered, parseInt(UI.br.value));
+    return bufferToWave(rendered, rendered.length);
+}
+
+// ---- Download / split ----
+UI.btnDl.addEventListener('click', async ()=>{
+    if (!originalBuffer) return;
+    showLoader('正在导出...');
+    try {
+        const s=parseFloat(UI.tStart.value), e=parseFloat(UI.tEnd.value);
+        const blob=await renderSegmentToBlob(s,e);
+        triggerDownload(blob, `${rawFileName}_cut.${el('exportFormat').value}`);
+    } catch(e) { alert(e); } finally { hideLoader(); }
+});
+
+UI.btnSplit.addEventListener('click', async ()=>{
+    if (!originalBuffer) return;
+    const n=parseInt(UI.splitN.value); if(n<2) return;
+    showLoader(`批量切分: 0/${n}`);
+    try {
+        const segDur=originalBuffer.duration/n;
+        for(let i=0;i<n;i++){
+            setLoaderProg(`${i+1}/${n}`);
+            const blob=await renderSegmentToBlob(i*segDur,(i+1)*segDur);
+            triggerDownload(blob, `${rawFileName}_part${i+1}.${el('exportFormat').value}`);
+            await new Promise(r=>setTimeout(r,500));
         }
-        UI.est.innerText = `预估: ${(bytes/1024/1024).toFixed(2)} MB`;
-    }
-    [UI.rate, UI.fmt, UI.br, UI.sr, UI.ch].forEach(i=>{i.addEventListener('input', updateEstimate); i.addEventListener('change', updateEstimate); });
-    UI.fmt.addEventListener('change', () => { const isMp3 = UI.fmt.value === 'mp3'; el('bitrateGroup').style.opacity = isMp3?'1':'0.3'; UI.br.disabled = !isMp3; });
-    function formatTimeFull(s) { const m = Math.floor(s/60); const sec = Math.floor(s%60); const ms = Math.floor((s%1)*100); return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}.${ms.toString().padStart(2,'0')}`; }
-    function showLoader(t){ el('loader').style.display='flex'; el('loaderText').innerText=t; }
-    function hideLoader(){ el('loader').style.display='none'; }
-    function bufferToMp3(buf, kbps) { const enc = new lamejs.Mp3Encoder(buf.numberOfChannels, buf.sampleRate, kbps); const d=[]; const l=buf.getChannelData(0); const r=buf.numberOfChannels>1?buf.getChannelData(1):undefined; const conv=a=>{const i=new Int16Array(a.length); for(let k=0;k<a.length;k++){let v=Math.max(-1,Math.min(1,a[k])); i[k]=v<0?v*0x8000:v*0x7FFF;} return i;} 
-    const lD=conv(l); const rD=r?conv(r):undefined; const bs=1152; for(let i=0;i<lD.length;i+=bs){ const b=enc.encodeBuffer(lD.subarray(i,i+bs), rD?rD.subarray(i,i+bs):undefined); if(b.length>0)d.push(b); } const f=enc.flush(); if(f.length>0)d.push(f); return new Blob(d,{type:'audio/mp3'}); }
-    function bufferToWave(b,len){let c=b.numberOfChannels,l=len*c*2+44,bf=new ArrayBuffer(l),v=new DataView(bf),p=0;function u16(x){v.setUint16(p,x,true);p+=2}function u32(x){v.setUint32(p,x,true);p+=4}u32(0x46464952);u32(l-8);u32(0x45564157);u32(0x20746d66);u32(16);u16(1);u16(c);u32(b.sampleRate);u32(b.sampleRate*2*c);u16(c*2);u16(16);u32(0x61746164);u32(l-p-4);let chs=[];for(let i=0;i<c;i++)chs.push(b.getChannelData(i));while(p<l){for(let i=0;i<c;i++){let s=Math.max(-1,Math.min(1,chs[i][(p-44)/2/c]));s=(s<0?s*32768:s*32767)|0;v.setInt16(p,s,true);p+=2;}}return new Blob([bf],{type:'audio/wav'});}
+    } catch(e) { alert('分段失败: '+e); } finally { hideLoader(); }
+});
+
+function resetParams() {
+    if (!originalBuffer) return;
+    UI.rate.value=1; UI.rateVal.innerText='1.00x';
+    UI.vol.value=1;  UI.volVal.innerText='100%';
+    UI.rev.checked=false;
+    UI.tStart.value='0.00'; UI.tEnd.value=fmt(originalBuffer.duration);
+    stopAudio(); drawStaticWave(); updateEstimate();
+}
+
+// ==========================================
+//  MERGE FEATURE
+// ==========================================
+let mergeFiles = []; // [{file, name, duration, sampleRate, channels}]
+
+el('mergeFileInput').addEventListener('change', async function() {
+    if (!this.files.length) return;
+    showLoader('正在读取文件信息...');
+    const ctx = getAudioCtx();
+    try {
+        for (const file of this.files) {
+            const ab = await file.arrayBuffer();
+            const buf = await ctx.decodeAudioData(ab);
+            mergeFiles.push({
+                file,
+                name: file.name,
+                baseName: file.name.replace(/\.[^/.]+$/,''),
+                duration: buf.duration,
+                sampleRate: buf.sampleRate,
+                channels: buf.numberOfChannels,
+                size: file.size
+            });
+        }
+        // Sort by name on first load (stable sort)
+        mergeFiles.sort((a,b)=>a.name.localeCompare(b.name, undefined, {numeric:true}));
+        renderMergeList();
+    } catch(e) { alert('读取失败: '+e.message); } finally { hideLoader(); this.value=''; }
+});
+
+function renderMergeList() {
+    const list = el('mergeFileList');
+    const isEmpty = mergeFiles.length === 0;
+    el('mergeEmpty').style.display = isEmpty ? '' : 'none';
+    el('mergeSortHint').style.display = isEmpty ? 'none' : '';
+    el('btnMerge').disabled = mergeFiles.length < 2;
+
+    // Remove existing items
+    [...list.querySelectorAll('.merge-file-item')].forEach(i=>i.remove());
+
+    mergeFiles.forEach((f, idx) => {
+        const item = document.createElement('div');
+        item.className = 'merge-file-item';
+        item.draggable = true;
+        item.dataset.idx = idx;
+        item.innerHTML = `
+            <span class="merge-file-num">${idx+1}</span>
+            <span class="drag-handle">⠿</span>
+            <div class="merge-file-info">
+                <div class="merge-file-name" title="${f.name}">${f.name}</div>
+                <div class="merge-file-meta">${f.sampleRate}Hz · ${f.channels}ch · ${f.duration.toFixed(1)}s · ${(f.size/1024/1024).toFixed(2)}MB</div>
+            </div>
+            <button class="btn-remove" title="移除" onclick="removeMergeFile(${idx})">✕</button>
+        `;
+        // Drag events
+        item.addEventListener('dragstart', onDragStart);
+        item.addEventListener('dragover',  onDragOver);
+        item.addEventListener('dragleave', onDragLeave);
+        item.addEventListener('drop',      onDrop);
+        item.addEventListener('dragend',   onDragEnd);
+        list.appendChild(item);
+    });
+
+    updateMergeInfo();
+}
+
+function updateMergeInfo() {
+    const total = mergeFiles.reduce((s,f)=>s+f.duration,0);
+    el('mergeInfo').innerText = `${mergeFiles.length} 个文件，共 ${total.toFixed(1)} 秒`;
+}
+
+function removeMergeFile(idx) {
+    mergeFiles.splice(idx,1);
+    renderMergeList();
+}
+
+function clearMergeFiles() {
+    mergeFiles = [];
+    renderMergeList();
+}
+
+// ---- Drag & Drop sort ----
+let dragSrcIdx = null;
+
+function onDragStart(e) {
+    dragSrcIdx = parseInt(this.dataset.idx);
+    this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+function onDragOver(e) {
+    e.preventDefault(); e.dataTransfer.dropEffect='move';
+    this.classList.add('drag-over');
+}
+function onDragLeave() { this.classList.remove('drag-over'); }
+function onDrop(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    const targetIdx = parseInt(this.dataset.idx);
+    if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+    const moved = mergeFiles.splice(dragSrcIdx,1)[0];
+    mergeFiles.splice(targetIdx,0,moved);
+    renderMergeList();
+}
+function onDragEnd() {
+    dragSrcIdx = null;
+    document.querySelectorAll('.merge-file-item').forEach(i=>{
+        i.classList.remove('dragging','drag-over');
+    });
+}
+
+// ---- Merge & Export ----
+async function doMerge() {
+    if (mergeFiles.length < 2) return;
+    showLoader('正在合并...', '解码文件 0/' + mergeFiles.length);
+    const ctx = getAudioCtx();
+    const mergeFmt  = el('mergeFormat').value;
+    const mergeBr   = parseInt(el('mergeBitrate').value);
+    const mergeRateV = el('mergeRate').value;
+
+    try {
+        // 1. Decode all files
+        const buffers = [];
+        for (let i=0; i<mergeFiles.length; i++) {
+            setLoaderProg(`解码文件 ${i+1}/${mergeFiles.length}`);
+            const ab = await mergeFiles[i].file.arrayBuffer();
+            const buf = await ctx.decodeAudioData(ab);
+            buffers.push(buf);
+        }
+
+        // 2. Determine target params
+        const targetSR = mergeRateV==='auto' ? buffers[0].sampleRate : parseInt(mergeRateV);
+        const targetCh = Math.max(...buffers.map(b=>b.numberOfChannels));
+
+        // 3. Resample / channel-normalize each buffer if needed
+        setLoaderProg('处理中...');
+        const normBuffers = [];
+        for (let i=0; i<buffers.length; i++) {
+            setLoaderProg(`处理 ${i+1}/${buffers.length}`);
+            const buf = buffers[i];
+            if (buf.sampleRate === targetSR && buf.numberOfChannels === targetCh) {
+                normBuffers.push(buf); continue;
+            }
+            const dur = buf.duration;
+            const offCtx = new OfflineAudioContext(targetCh, Math.ceil(dur*targetSR), targetSR);
+            const src = offCtx.createBufferSource();
+            src.buffer = buf;
+            src.connect(offCtx.destination);
+            src.start(0);
+            normBuffers.push(await offCtx.startRendering());
+        }
+
+        // 4. Concatenate
+        setLoaderProg('拼接中...');
+        const totalFrames = normBuffers.reduce((s,b)=>s+b.length,0);
+        const merged = ctx.createBuffer(targetCh, totalFrames, targetSR);
+        let offset = 0;
+        for (const buf of normBuffers) {
+            for (let ch=0; ch<targetCh; ch++) {
+                const src = ch < buf.numberOfChannels ? buf.getChannelData(ch) : buf.getChannelData(0);
+                merged.getChannelData(ch).set(src, offset);
+            }
+            offset += buf.length;
+        }
+
+        // 5. Encode
+        setLoaderProg('编码中...');
+        let blob;
+        if (mergeFmt === 'mp3') blob = bufferToMp3(merged, mergeBr);
+        else blob = bufferToWave(merged, merged.length);
+
+        // 6. Download — use first file's baseName
+        const outName = `${mergeFiles[0].baseName}_merged.${mergeFmt}`;
+        triggerDownload(blob, outName);
+
+    } catch(e) { alert('合并失败: '+e.message); } finally { hideLoader(); }
+}
+
+// Format toggle for merge
+el('mergeFormat').addEventListener('change', ()=>{
+    const m = el('mergeFormat').value === 'mp3';
+    el('mergeBitrateGroup').style.opacity = m?'1':'0.3';
+    el('mergeBitrate').disabled = !m;
+});
 </script>
 </body>
 </html>
