@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web音频工坊 V13</title>
+    <title>Web音频工坊 V14</title>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
         :root {
@@ -59,6 +59,11 @@
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
         .val-badge { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: .75em; min-width: 38px; text-align: center; }
 
+        /* ===== PITCH BADGE COLORS ===== */
+        .pitch-badge.wsola { background: #2980b9; }
+        .pitch-badge.native { background: #27ae60; }
+        .pitch-badge.warn { background: #e67e22; }
+
         /* ===== CUT PANEL ===== */
         .cut-panel { background: #f4f6f7; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 8px; }
         .cut-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -85,7 +90,7 @@
         .merge-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e8d5f5; padding-bottom: 10px; }
         .merge-file-list { display: flex; flex-direction: column; gap: 4px; min-height: 20px; }
         .merge-empty { text-align: center; color: #aaa; font-size: .85em; padding: 12px; background: #fafafa; border: 1px dashed #ddd; border-radius: 6px; }
-        
+
         .merge-file-item {
             display: flex; align-items: center; gap: 8px;
             background: white; border: 1px solid #e0d0f0;
@@ -125,6 +130,10 @@
 
         /* ===== MISC ===== */
         .sort-hint { font-size: .78em; color: #aaa; text-align: center; }
+
+        /* ===== WSOLA NOTE ===== */
+        .algo-note { font-size: .75em; color: #888; background: #f0f6fb; border: 1px solid #d0e8f5; border-radius: 4px; padding: 4px 8px; text-align: center; }
+        .algo-note b { color: #2980b9; }
     </style>
 </head>
 <body>
@@ -140,7 +149,7 @@
     <!-- ===== SINGLE FILE EDITOR ===== -->
     <div class="card">
         <div class="header">
-            <h1>🎧 Web 音频工坊 V13</h1>
+            <h1>🎧 Web 音频工坊 V14</h1>
             <button class="btn-sm" onclick="resetParams()">↺ 重置参数</button>
         </div>
 
@@ -177,9 +186,12 @@
 
             <div class="control-group">
                 <div class="row">
-                    <div class="label">🚀 变速 <span class="pitch-badge">音调不变</span></div>
+                    <div class="label">🚀 变速 <span class="pitch-badge wsola" id="speedBadge">WSOLA变速不变调</span></div>
                     <input type="range" id="rateInput" min="0.5" max="2.0" step="0.05" value="1.0">
                     <div class="val-badge" id="rateVal">1.0x</div>
+                </div>
+                <div class="algo-note" id="algoNote">
+                    🎵 <b>WSOLA 算法</b>：和苹果播客相同原理，变速时音调完全不变（导出也一样）
                 </div>
                 <div class="row">
                     <div class="label">🔊 音量</div>
@@ -299,6 +311,145 @@
 
 <script>
 // ==========================================
+//  WSOLA TIME-STRETCHER (变速不变调)
+//  算法：Waveform Similarity Overlap-Add
+//  同苹果播客、YouTube等的底层原理相同
+// ==========================================
+class WSOLAStretcher {
+    constructor(sampleRate) {
+        this.sampleRate = sampleRate;
+        // 参数调优：针对语音/播客内容
+        this.windowMs  = 25;   // 分析窗口 25ms（对语音效果好）
+        this.overlapMs = 12;   // 重叠 12ms
+        this.seekMs    = 15;   // 相似性搜索范围 ±15ms
+    }
+
+    /**
+     * 对单声道 Float32Array 进行时间拉伸
+     * @param {Float32Array} input  原始采样
+     * @param {number} rate         播放速率，>1 加速，<1 减速
+     * @returns {Float32Array}      处理后采样（长度 ≈ input.length / rate）
+     */
+    stretch(input, rate) {
+        if (Math.abs(rate - 1.0) < 0.01) return input.slice(); // 1x 直接返回
+
+        const sr = this.sampleRate;
+        const windowSize  = Math.round(sr * this.windowMs  / 1000);
+        const overlapSize = Math.round(sr * this.overlapMs / 1000);
+        const seekSize    = Math.round(sr * this.seekMs    / 1000);
+        const hopSynth    = windowSize - overlapSize;          // 合成步长（固定）
+        const hopAnalysis = Math.round(hopSynth * rate);       // 分析步长
+
+        // 汉宁窗
+        const hannWindow = new Float32Array(windowSize);
+        for (let i = 0; i < windowSize; i++) {
+            hannWindow[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSize - 1)));
+        }
+
+        const outputLen = Math.ceil(input.length / rate) + windowSize * 2;
+        const output    = new Float32Array(outputLen);
+        const normBuf   = new Float32Array(outputLen); // 归一化累积窗口
+
+        let analysisPos = 0;
+        let synthPos    = 0;
+
+        while (analysisPos + windowSize <= input.length) {
+            // ---- 找最佳匹配帧（WSOLA 核心）----
+            let bestOffset = 0;
+            let bestCorr   = -Infinity;
+
+            if (synthPos > overlapSize) {
+                // 在前一帧的合成结尾附近搜索相似波形
+                const prevStart = synthPos - overlapSize;
+                const prevFrame = output.slice(prevStart, prevStart + overlapSize);
+
+                const searchStart = Math.max(0, analysisPos - seekSize);
+                const searchEnd   = Math.min(input.length - windowSize, analysisPos + seekSize);
+
+                for (let delta = searchStart - analysisPos; delta <= searchEnd - analysisPos; delta++) {
+                    const testPos = analysisPos + delta;
+                    if (testPos < 0 || testPos + overlapSize > input.length) continue;
+
+                    // 归一化互相关（只看重叠区）
+                    let corr = 0, normA = 0, normB = 0;
+                    for (let k = 0; k < overlapSize; k++) {
+                        const a = prevFrame[k];
+                        const b = input[testPos + k];
+                        corr  += a * b;
+                        normA += a * a;
+                        normB += b * b;
+                    }
+                    const denom = Math.sqrt(normA * normB) + 1e-10;
+                    const score = corr / denom;
+
+                    if (score > bestCorr) {
+                        bestCorr   = score;
+                        bestOffset = delta;
+                    }
+                }
+            }
+
+            const readPos = analysisPos + bestOffset;
+
+            // ---- 加窗叠加 ----
+            for (let i = 0; i < windowSize; i++) {
+                const si = synthPos + i;
+                if (si >= outputLen) break;
+                const w = hannWindow[i];
+                output[si]  += input[readPos + i] * w;
+                normBuf[si] += w;
+            }
+
+            analysisPos += hopAnalysis;
+            synthPos    += hopSynth;
+        }
+
+        // ---- 归一化（防止叠加产生的增益误差）----
+        const finalLen = Math.min(synthPos + windowSize, outputLen);
+        const result   = new Float32Array(finalLen);
+        for (let i = 0; i < finalLen; i++) {
+            result[i] = normBuf[i] > 1e-6 ? output[i] / normBuf[i] : 0;
+        }
+
+        // 精确裁剪到目标长度
+        const targetLen = Math.round(input.length / rate);
+        return result.slice(0, Math.min(targetLen, result.length));
+    }
+
+    /**
+     * 处理多声道 AudioBuffer
+     * @param {AudioContext} ctx
+     * @param {AudioBuffer} buffer  原始缓冲区
+     * @param {number} rate         速率
+     * @param {number} targetSR     目标采样率
+     * @param {number} targetCh     目标声道数
+     * @returns {AudioBuffer}
+     */
+    stretchBuffer(ctx, buffer, rate, targetSR, targetCh) {
+        // 如采样率不同，先用 OfflineAudioContext 重采样（同步无法做，调用方异步处理）
+        const numCh = Math.min(buffer.numberOfChannels, targetCh);
+        const stretchedCh = [];
+
+        for (let ch = 0; ch < numCh; ch++) {
+            const data = buffer.getChannelData(ch);
+            stretchedCh.push(this.stretch(data, rate));
+        }
+
+        // 若目标声道数 > 源声道数，复制第一声道
+        while (stretchedCh.length < targetCh) {
+            stretchedCh.push(stretchedCh[0].slice());
+        }
+
+        const outLen = stretchedCh[0].length;
+        const out = ctx.createBuffer(targetCh, outLen, targetSR);
+        for (let ch = 0; ch < targetCh; ch++) {
+            out.getChannelData(ch).set(stretchedCh[ch]);
+        }
+        return out;
+    }
+}
+
+// ==========================================
 //  SHARED STATE
 // ==========================================
 let audioCtx;
@@ -363,6 +514,9 @@ let isPlaying = false, startTime = 0, startOffset = 0, playMode = 'full';
 let nextClickIsStart = true;
 let rawFileName = "audio";
 
+// 播放专用：WSOLA 处理缓存，避免每次点击都重新计算
+let wsolaCache = { rate: null, buffer: null };
+
 const UI = {
     file:      el('fileInput'),
     workspace: el('workspace'),
@@ -403,6 +557,7 @@ UI.file.addEventListener('change', async function() {
         UI.tStart.value='0.00';
         UI.tEnd.value=fmt(originalBuffer.duration);
         nextClickIsStart=true;
+        wsolaCache = { rate: null, buffer: null }; // 清空缓存
         UI.workspace.classList.remove('hidden');
         stopAudio();
         drawStaticWave();
@@ -414,7 +569,13 @@ UI.file.addEventListener('change', async function() {
 UI.rate.addEventListener('input', function() {
     const val = parseFloat(this.value);
     UI.rateVal.innerText = val.toFixed(2)+'x';
-    if (isPlaying && sourceNode) sourceNode.playbackRate.value = val;
+    wsolaCache = { rate: null, buffer: null }; // 速率变了，清缓存
+    // 实时播放中：停止并重新用新速率播放（WSOLA 无法实时动态修改）
+    if (isPlaying) {
+        const curMode = playMode;
+        stopAudio(false, true);
+        playAudio(curMode);
+    }
     updateEstimate();
 });
 UI.vol.addEventListener('input', function() {
@@ -461,51 +622,77 @@ UI.btnSeg.addEventListener('click', () => {
 });
 UI.btnStop.addEventListener('click', () => stopAudio());
 
+/**
+ * 播放（WSOLA 变速）
+ * 注意：WSOLA 是离线处理，先计算好整个变速缓冲区再播放
+ * 对于全文件播放从中间 seek 的场景，我们按需截取已处理的缓冲区
+ */
 function playAudio(mode) {
     if (!originalBuffer) return;
     const ctx = getAudioCtx();
     playMode = mode;
-    let bufToPlay = originalBuffer, playStart = 0;
+    const rate = parseFloat(UI.rate.value);
+    const vol  = parseFloat(UI.vol.value);
+
+    let bufToPlay;
+    let playStartSec = 0;
 
     if (mode === 'segment') {
+        // 片段模式：取选区，WSOLA 处理
         const seg = getSegmentBuffer(UI.rev.checked);
         if (!seg) return;
-        bufToPlay = seg;
+        if (Math.abs(rate - 1.0) < 0.01) {
+            bufToPlay = seg;
+        } else {
+            const stretcher = new WSOLAStretcher(seg.sampleRate);
+            bufToPlay = stretcher.stretchBuffer(ctx, seg, rate, seg.sampleRate, seg.numberOfChannels);
+        }
     } else {
-        playStart = startOffset;
+        // 全文件模式：WSOLA 处理整个文件（使用缓存避免重复计算）
+        let stretchedFull;
+        if (Math.abs(rate - 1.0) < 0.01) {
+            stretchedFull = originalBuffer;
+        } else if (wsolaCache.rate === rate && wsolaCache.buffer) {
+            stretchedFull = wsolaCache.buffer;
+        } else {
+            const stretcher = new WSOLAStretcher(originalBuffer.sampleRate);
+            stretchedFull = stretcher.stretchBuffer(ctx, originalBuffer, rate, originalBuffer.sampleRate, originalBuffer.numberOfChannels);
+            wsolaCache = { rate, buffer: stretchedFull };
+        }
+        bufToPlay = stretchedFull;
+        // startOffset 对应的是原始时间轴位置，换算到变速后时间轴
+        playStartSec = startOffset / rate;
     }
 
     sourceNode = ctx.createBufferSource();
     sourceNode.buffer = bufToPlay;
-
-    // ★ PITCH-PRESERVING SPEED ★
-    const rate = parseFloat(UI.rate.value);
-    sourceNode.playbackRate.value = rate;
-    sourceNode.preservesPitch = true;
-    if ('webkitPreservesPitch' in sourceNode) sourceNode.webkitPreservesPitch = true;
+    // WSOLA 已经做了时间拉伸，这里不再用 playbackRate 变速（保持 1.0）
+    sourceNode.playbackRate.value = 1.0;
 
     gainNode = ctx.createGain();
-    gainNode.gain.value = parseFloat(UI.vol.value);
+    gainNode.gain.value = vol;
     sourceNode.connect(gainNode);
     gainNode.connect(ctx.destination);
 
     startTime = ctx.currentTime;
-    sourceNode.start(0, playStart);
+    sourceNode.start(0, playStartSec);
     isPlaying = true;
-    if (mode==='segment') UI.btnSeg.innerText='⏹ 停止预览';
+    if (mode === 'segment') UI.btnSeg.innerText = '⏹ 停止预览';
     requestAnimationFrame(updatePlayHead);
 
     sourceNode.onended = () => {
-        const played = (ctx.currentTime - startTime) * rate;
-        const dur = bufToPlay.duration - playStart;
-        if (played >= dur - 0.1) stopAudio(true);
+        const played = ctx.currentTime - startTime;
+        const durLeft = bufToPlay.duration - playStartSec;
+        if (played >= durLeft - 0.15) stopAudio(true);
     };
 }
 
 function stopAudio(reset=false, updateOffset=true) {
     if (sourceNode) try { sourceNode.stop(); } catch(e) {}
     if (isPlaying && playMode==='full' && updateOffset && audioCtx) {
-        const elapsed = (audioCtx.currentTime - startTime) * parseFloat(UI.rate.value);
+        // 已播时间（对应原始时间轴）= 已播变速后秒数 * rate
+        const rate = parseFloat(UI.rate.value);
+        const elapsed = (audioCtx.currentTime - startTime) * rate;
         startOffset += elapsed;
         if (startOffset >= originalBuffer.duration || reset) startOffset = 0;
     }
@@ -520,14 +707,16 @@ function updatePlayHead() {
     if (!isPlaying) return;
     requestAnimationFrame(updatePlayHead);
     const rate = parseFloat(UI.rate.value);
-    let cur = (audioCtx.currentTime - startTime) * rate;
-    if (playMode==='full') {
-        cur += startOffset;
-        UI.time.innerText = formatTimeFull(cur);
+    if (playMode === 'full') {
+        // 已播秒数（变速后时间轴），换算回原始时间轴
+        const elapsed = (audioCtx.currentTime - startTime) * rate;
+        const cur = startOffset + elapsed;
+        UI.time.innerText = formatTimeFull(Math.min(cur, originalBuffer.duration));
         UI.head.style.display = 'block';
-        UI.head.style.left = (cur/originalBuffer.duration*100)+'%';
+        UI.head.style.left = (Math.min(cur, originalBuffer.duration) / originalBuffer.duration * 100) + '%';
     } else {
-        UI.time.innerText = '预览: '+formatTimeFull(cur);
+        const elapsed = audioCtx.currentTime - startTime; // 变速已被 WSOLA 消化
+        UI.time.innerText = '预览: ' + formatTimeFull(elapsed * rate); // 显示原始等效时间
         UI.head.style.display = 'none';
     }
 }
@@ -535,7 +724,7 @@ function updatePlayHead() {
 function updatePlayHeadUI(time) {
     if (!originalBuffer) return;
     UI.head.style.display = 'block';
-    UI.head.style.left = (time/originalBuffer.duration*100)+'%';
+    UI.head.style.left = (time / originalBuffer.duration * 100) + '%';
 }
 
 // ---- Waveform ----
@@ -610,40 +799,61 @@ UI.fmt.addEventListener('change',()=>{
     UI.br.disabled=!m;
 });
 
-// ---- Render to blob ★ PITCH-PRESERVING via preservesPitch in OfflineAudioContext ★ ----
+// ---- WSOLA Export（变速不变调导出）----
 async function renderSegmentToBlob(startSec, endSec) {
-    const dur=endSec-startSec;
-    if (dur<=0) throw new Error('时长无效');
-    const ctx=getAudioCtx();
-    const rate=parseFloat(UI.rate.value), vol=parseFloat(UI.vol.value), isRev=UI.rev.checked;
-    const tSR=el('exportRate').value==='original'?originalBuffer.sampleRate:parseInt(el('exportRate').value);
-    const tCh=el('exportChannels').value==='original'?originalBuffer.numberOfChannels:parseInt(el('exportChannels').value);
+    const dur = endSec - startSec;
+    if (dur <= 0) throw new Error('时长无效');
 
-    // 1. Cut segment
-    const cutBuf=ctx.createBuffer(originalBuffer.numberOfChannels,Math.floor(dur*originalBuffer.sampleRate),originalBuffer.sampleRate);
-    const sf=Math.floor(startSec*originalBuffer.sampleRate);
-    for(let i=0;i<originalBuffer.numberOfChannels;i++){
-        const o=originalBuffer.getChannelData(i), n=cutBuf.getChannelData(i);
-        for(let j=0;j<cutBuf.length;j++) n[j]=o[sf+j]||0;
-        if(isRev) Array.prototype.reverse.call(n);
+    const ctx  = getAudioCtx();
+    const rate = parseFloat(UI.rate.value);
+    const vol  = parseFloat(UI.vol.value);
+    const isRev = UI.rev.checked;
+
+    const tSR = el('exportRate').value==='original' ? originalBuffer.sampleRate : parseInt(el('exportRate').value);
+    const tCh = el('exportChannels').value==='original' ? originalBuffer.numberOfChannels : parseInt(el('exportChannels').value);
+
+    // 1. 切取并可选倒放
+    const f  = Math.floor(dur * originalBuffer.sampleRate);
+    const sf = Math.floor(startSec * originalBuffer.sampleRate);
+    const cutBuf = ctx.createBuffer(originalBuffer.numberOfChannels, f, originalBuffer.sampleRate);
+    for (let i = 0; i < originalBuffer.numberOfChannels; i++) {
+        const o = originalBuffer.getChannelData(i), n = cutBuf.getChannelData(i);
+        for (let j = 0; j < f; j++) n[j] = o[sf + j] || 0;
+        if (isRev) Array.prototype.reverse.call(n);
     }
 
-    // 2. Render with pitch-preserving speed change
-    const renderDur = dur / rate;
-    const offCtx = new OfflineAudioContext(tCh, Math.ceil(renderDur*tSR), tSR);
-    const src = offCtx.createBufferSource();
-    src.buffer = cutBuf;
-    src.playbackRate.value = rate;
-    // ★ pitch preservation ★
-    src.preservesPitch = true;
-    if ('webkitPreservesPitch' in src) src.webkitPreservesPitch = true;
+    // 2. 如需重采样（先用 OfflineAudioContext 做）
+    let workBuf = cutBuf;
+    if (tSR !== originalBuffer.sampleRate || tCh !== originalBuffer.numberOfChannels) {
+        const offCtx = new OfflineAudioContext(tCh, Math.ceil(cutBuf.duration * tSR), tSR);
+        const src = offCtx.createBufferSource();
+        src.buffer = cutBuf;
+        src.connect(offCtx.destination);
+        src.start(0);
+        workBuf = await offCtx.startRendering();
+    }
 
-    const gain = offCtx.createGain(); gain.gain.value = vol;
-    src.connect(gain); gain.connect(offCtx.destination); src.start(0);
-    const rendered = await offCtx.startRendering();
+    // 3. WSOLA 时间拉伸（变速不变调）
+    let stretchedBuf;
+    if (Math.abs(rate - 1.0) < 0.01) {
+        stretchedBuf = workBuf;
+    } else {
+        setLoaderProg('WSOLA 处理中...');
+        const stretcher = new WSOLAStretcher(workBuf.sampleRate);
+        stretchedBuf = stretcher.stretchBuffer(ctx, workBuf, rate, workBuf.sampleRate, workBuf.numberOfChannels);
+    }
 
-    if (el('exportFormat').value==='mp3') return bufferToMp3(rendered, parseInt(UI.br.value));
-    return bufferToWave(rendered, rendered.length);
+    // 4. 音量
+    if (Math.abs(vol - 1.0) > 0.01) {
+        for (let ch = 0; ch < stretchedBuf.numberOfChannels; ch++) {
+            const d = stretchedBuf.getChannelData(ch);
+            for (let i = 0; i < d.length; i++) d[i] = Math.max(-1, Math.min(1, d[i] * vol));
+        }
+    }
+
+    // 5. 编码
+    if (el('exportFormat').value === 'mp3') return bufferToMp3(stretchedBuf, parseInt(UI.br.value));
+    return bufferToWave(stretchedBuf, stretchedBuf.length);
 }
 
 // ---- Download / split ----
@@ -678,13 +888,14 @@ function resetParams() {
     UI.vol.value=1;  UI.volVal.innerText='100%';
     UI.rev.checked=false;
     UI.tStart.value='0.00'; UI.tEnd.value=fmt(originalBuffer.duration);
+    wsolaCache = { rate: null, buffer: null };
     stopAudio(); drawStaticWave(); updateEstimate();
 }
 
 // ==========================================
 //  MERGE FEATURE
 // ==========================================
-let mergeFiles = []; // [{file, name, duration, sampleRate, channels}]
+let mergeFiles = [];
 
 el('mergeFileInput').addEventListener('change', async function() {
     if (!this.files.length) return;
@@ -704,7 +915,6 @@ el('mergeFileInput').addEventListener('change', async function() {
                 size: file.size
             });
         }
-        // Sort by name on first load (stable sort)
         mergeFiles.sort((a,b)=>a.name.localeCompare(b.name, undefined, {numeric:true}));
         renderMergeList();
     } catch(e) { alert('读取失败: '+e.message); } finally { hideLoader(); this.value=''; }
@@ -717,7 +927,6 @@ function renderMergeList() {
     el('mergeSortHint').style.display = isEmpty ? 'none' : '';
     el('btnMerge').disabled = mergeFiles.length < 2;
 
-    // Remove existing items
     [...list.querySelectorAll('.merge-file-item')].forEach(i=>i.remove());
 
     mergeFiles.forEach((f, idx) => {
@@ -734,7 +943,6 @@ function renderMergeList() {
             </div>
             <button class="btn-remove" title="移除" onclick="removeMergeFile(${idx})">✕</button>
         `;
-        // Drag events
         item.addEventListener('dragstart', onDragStart);
         item.addEventListener('dragover',  onDragOver);
         item.addEventListener('dragleave', onDragLeave);
@@ -761,7 +969,6 @@ function clearMergeFiles() {
     renderMergeList();
 }
 
-// ---- Drag & Drop sort ----
 let dragSrcIdx = null;
 
 function onDragStart(e) {
@@ -790,7 +997,6 @@ function onDragEnd() {
     });
 }
 
-// ---- Merge & Export ----
 async function doMerge() {
     if (mergeFiles.length < 2) return;
     showLoader('正在合并...', '解码文件 0/' + mergeFiles.length);
@@ -800,7 +1006,6 @@ async function doMerge() {
     const mergeRateV = el('mergeRate').value;
 
     try {
-        // 1. Decode all files
         const buffers = [];
         for (let i=0; i<mergeFiles.length; i++) {
             setLoaderProg(`解码文件 ${i+1}/${mergeFiles.length}`);
@@ -809,11 +1014,9 @@ async function doMerge() {
             buffers.push(buf);
         }
 
-        // 2. Determine target params
         const targetSR = mergeRateV==='auto' ? buffers[0].sampleRate : parseInt(mergeRateV);
         const targetCh = Math.max(...buffers.map(b=>b.numberOfChannels));
 
-        // 3. Resample / channel-normalize each buffer if needed
         setLoaderProg('处理中...');
         const normBuffers = [];
         for (let i=0; i<buffers.length; i++) {
@@ -831,7 +1034,6 @@ async function doMerge() {
             normBuffers.push(await offCtx.startRendering());
         }
 
-        // 4. Concatenate
         setLoaderProg('拼接中...');
         const totalFrames = normBuffers.reduce((s,b)=>s+b.length,0);
         const merged = ctx.createBuffer(targetCh, totalFrames, targetSR);
@@ -844,20 +1046,17 @@ async function doMerge() {
             offset += buf.length;
         }
 
-        // 5. Encode
         setLoaderProg('编码中...');
         let blob;
         if (mergeFmt === 'mp3') blob = bufferToMp3(merged, mergeBr);
         else blob = bufferToWave(merged, merged.length);
 
-        // 6. Download — use first file's baseName
         const outName = `${mergeFiles[0].baseName}_merged.${mergeFmt}`;
         triggerDownload(blob, outName);
 
     } catch(e) { alert('合并失败: '+e.message); } finally { hideLoader(); }
 }
 
-// Format toggle for merge
 el('mergeFormat').addEventListener('change', ()=>{
     const m = el('mergeFormat').value === 'mp3';
     el('mergeBitrateGroup').style.opacity = m?'1':'0.3';
