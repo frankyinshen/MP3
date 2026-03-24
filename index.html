@@ -790,7 +790,10 @@ async function loadAudioFile(file) {
         updateEstimate();
         el('silenceSegs').style.display = 'none';
         el('silenceSegs').innerHTML = '';
-    } catch(e) { alert('解码失败: '+e.message); }
+    } catch(e) {
+        console.error('loadAudioFile 解码失败:', e);
+        alert('解码失败: ' + (e.message || '格式可能不受支持，请尝试转换为 MP3 或 WAV'));
+    }
     finally { hideLoader(); }
 }
 
@@ -1399,22 +1402,36 @@ setupDropZone(el('mergeUploadBox'), files => addMergeFiles(files));
 async function addMergeFiles(files) {
     showLoader('正在读取并解码文件...');
     const ctx = getAudioCtx();
+    const errors = [];
     try {
         for (const file of files) {
-            if (!file.type.startsWith('audio/') && !/\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(file.name)) continue;
-            const ab  = await file.arrayBuffer();
-            const buf = await ctx.decodeAudioData(ab);
-            mergeFiles.push({
-                file, name: file.name,
-                baseName: file.name.replace(/\.[^/.]+$/,''),
-                duration: buf.duration, sampleRate: buf.sampleRate,
-                channels: buf.numberOfChannels, size: file.size,
-                decodedBuffer: buf  // 缓存解码结果，合并时无需重复解码
-            });
+            if (!file.type.startsWith('audio/') && !/\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(file.name)) {
+                errors.push(`${file.name}：不支持的文件类型（${file.type || '未知'}）`);
+                continue;
+            }
+            try {
+                setLoaderProg(`解码 ${file.name}...`);
+                const ab  = await file.arrayBuffer();
+                const buf = await ctx.decodeAudioData(ab.slice(0)); // slice(0) 确保拷贝完整
+                mergeFiles.push({
+                    file, name: file.name,
+                    baseName: file.name.replace(/\.[^/.]+$/,''),
+                    duration: buf.duration, sampleRate: buf.sampleRate,
+                    channels: buf.numberOfChannels, size: file.size,
+                    decodedBuffer: buf
+                });
+            } catch(e) {
+                console.error(`解码失败 [${file.name}]:`, e);
+                errors.push(`${file.name}：${e.message || '解码失败，格式可能不受支持'}`);
+            }
         }
         mergeFiles.sort((a,b)=>a.name.localeCompare(b.name, undefined, {numeric:true}));
         renderMergeList();
-    } catch(e) { alert('读取失败: '+e.message); }
+        if (errors.length) alert('以下文件处理失败：\n' + errors.join('\n'));
+    } catch(e) {
+        console.error('addMergeFiles 异常:', e);
+        alert('读取失败: ' + e.message);
+    }
     finally { hideLoader(); }
 }
 
