@@ -228,7 +228,7 @@
             <h1>🎧 Web 音频工坊 V15</h1>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
                 <!-- 上传入口：紧凑按钮，不再是大框 -->
-                <button class="btn-sm btn-upload" onclick="document.getElementById('fileInput').click()" id="btnUpload">
+                <button class="btn-sm btn-upload" id="btnUpload">
                     📂 上传音频
                 </button>
                 <input type="file" id="fileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac" style="display:none">
@@ -238,7 +238,7 @@
         </div>
 
         <!-- 未上传时的占位提示（拖拽目标） -->
-        <div id="dropHint" class="drop-hint" onclick="document.getElementById('fileInput').click()">
+        <div id="dropHint" class="drop-hint">
             <span class="drop-hint-icon">👆</span>
             <span>点击「上传音频」或直接将文件拖拽到此处</span>
             <span style="font-size:.8em;color:#aaa">MP3 · M4A · WAV · AAC · FLAC</span>
@@ -401,13 +401,12 @@
                 <span style="font-size:.8em;color:#999">拖拽排序 · 支持所有音频格式</span>
             </div>
 
-        <div class="upload-box merge-box" id="mergeUploadBox" onclick="document.getElementById('mergeFileInput').click()">
+        <div class="upload-box merge-box" id="mergeUploadBox">
             <div class="upload-icon">📂</div>
             <div class="upload-text">
                 <h3>点击或拖拽多个音频文件到此处</h3>
                 <p>MP3, WAV, M4A, AAC, FLAC, OGG 均可 · 可多次添加</p>
             </div>
-            <input type="file" id="mergeFileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac,.ogg" multiple style="display:none">
         </div>
 
         <div id="mergeFileList" class="merge-file-list">
@@ -457,6 +456,9 @@
     </div><!-- /card -->
 
 </div><!-- /container -->
+
+<!-- 文件 input 放在 body 顶层，避免任何 DOM 层级问题 -->
+<input type="file" id="mergeFileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac,.ogg" multiple style="display:none">
 
 <script>
 // ==========================================
@@ -799,6 +801,9 @@ async function loadAudioFile(file) {
 
 // ---- Drag & drop upload (single file) ----
 setupDropZone(el('dropHint'), files => { if(files.length) loadAudioFile(files[0]); });
+// 点击绑定（JS 绑定比 onclick 属性更可靠，避免 DOM 层级问题）
+el('btnUpload').addEventListener('click', () => el('fileInput').click());
+el('dropHint').addEventListener('click',  () => el('fileInput').click());
 
 function setupDropZone(box, onFiles) {
     box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('dragover'); });
@@ -1397,6 +1402,8 @@ el('mergeFileInput').addEventListener('change', async function() {
     this.value='';
 });
 
+// 点击上传框 → 触发隐藏 input（JS 绑定，比 onclick 属性更可靠）
+el('mergeUploadBox').addEventListener('click', () => el('mergeFileInput').click());
 setupDropZone(el('mergeUploadBox'), files => addMergeFiles(files));
 
 async function addMergeFiles(files) {
