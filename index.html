@@ -3,78 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web音频工坊 V14</title>
+    <title>Web音频工坊 V15</title>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
         :root {
             --primary: #2980b9; --accent: #e74c3c; --start: #27ae60; --end: #c0392b;
             --bg: #f5f6fa; --card: #ffffff; --text: #2c3e50;
             --merge: #8e44ad; --merge-light: #f5eef8;
+            --warn: #e67e22;
         }
         *, *::before, *::after { box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 10px; display: flex; justify-content: center; margin: 0; min-height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               background: var(--bg); color: var(--text); padding: 10px;
+               display: flex; justify-content: center; margin: 0; min-height: 100vh; }
         .container { width: 100%; max-width: 850px; display: flex; flex-direction: column; gap: 14px; }
 
         /* ===== CARD ===== */
-        .card { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 12px; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px;
+                box-shadow: 0 5px 20px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 12px; }
 
         /* ===== HEADER ===== */
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .header { display: flex; justify-content: space-between; align-items: center;
+                  border-bottom: 1px solid #eee; padding-bottom: 10px; flex-wrap: wrap; gap: 6px; }
         h1 { margin: 0; font-size: 1.3rem; color: var(--primary); }
         h2 { margin: 0; font-size: 1.1rem; color: var(--merge); }
-        .btn-sm { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: .2s; }
+        .btn-sm { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7;
+                  padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: .2s; }
         .btn-sm:hover { background: #bdc3c7; color: white; }
 
         /* ===== UPLOAD BOX ===== */
-        .upload-box { border: 2px dashed #bdc3c7; padding: 12px 16px; border-radius: 8px; background: #fcfcfc; cursor: pointer; transition: .2s; display: flex; align-items: center; gap: 14px; min-height: 50px; }
-        .upload-box:hover { border-color: var(--primary); background: #ebf5fb; }
-        .upload-box.merge-box:hover { border-color: var(--merge); background: var(--merge-light); }
+        .upload-box { border: 2px dashed #bdc3c7; padding: 12px 16px; border-radius: 8px;
+                      background: #fcfcfc; cursor: pointer; transition: .2s;
+                      display: flex; align-items: center; gap: 14px; min-height: 50px; }
+        .upload-box:hover, .upload-box.dragover { border-color: var(--primary); background: #ebf5fb; }
+        .upload-box.merge-box:hover, .upload-box.merge-box.dragover { border-color: var(--merge); background: var(--merge-light); }
         .upload-icon { font-size: 1.5rem; }
         .upload-text h3 { margin: 0; font-size: 0.95rem; color: #34495e; }
         .upload-text p  { margin: 0; font-size: 0.75rem; color: #7f8c8d; }
 
         /* ===== INFO BAR ===== */
-        .info-bar { display: flex; flex-wrap: wrap; gap: 12px; background: #ecf0f1; padding: 8px 12px; border-radius: 6px; font-size: .85em; color: #7f8c8d; border-left: 4px solid var(--primary); align-items: center; }
+        .info-bar { display: flex; flex-wrap: wrap; gap: 12px; background: #ecf0f1;
+                    padding: 8px 12px; border-radius: 6px; font-size: .85em; color: #7f8c8d;
+                    border-left: 4px solid var(--primary); align-items: center; }
         .info-item b { color: #2c3e50; margin-right: 3px; }
         .tag { background: #fff; padding: 1px 7px; border-radius: 4px; font-weight: bold; color: var(--primary); font-size: .8em; }
 
         /* ===== WAVEFORM ===== */
-        .vis-container { position: relative; width: 100%; height: 120px; background: #f0f3f5; border: 1px solid #bdc3c7; border-radius: 4px; overflow: hidden; cursor: pointer; user-select: none; }
+        .vis-wrapper { display: flex; flex-direction: column; gap: 4px; }
+        .zoom-bar { display: flex; align-items: center; gap: 8px; font-size: .8em; color: #888; }
+        .zoom-bar input[type=range] { flex: 1; height: 4px; }
+        .vis-container { position: relative; width: 100%; height: 120px; background: #f0f3f5;
+                         border: 1px solid #bdc3c7; border-radius: 4px; overflow: hidden;
+                         cursor: pointer; user-select: none; }
         .vis-container:hover { border-color: var(--primary); }
         canvas { width: 100%; height: 100%; display: block; }
-        .play-head { position: absolute; top: 0; left: 0; width: 2px; height: 100%; background: var(--accent); pointer-events: none; display: none; z-index: 10; box-shadow: 0 0 5px rgba(231,76,60,.8); }
+        .play-head { position: absolute; top: 0; left: 0; width: 2px; height: 100%;
+                     background: var(--accent); pointer-events: none; display: none; z-index: 10;
+                     box-shadow: 0 0 5px rgba(231,76,60,.8); }
 
         /* ===== TIPS ===== */
-        .tips { font-size: .8em; color: #7f8c8d; text-align: center; background: #fafafa; padding: 5px 8px; border-radius: 4px; border: 1px dashed #eee; }
+        .tips { font-size: .8em; color: #7f8c8d; text-align: center; background: #fafafa;
+                padding: 5px 8px; border-radius: 4px; border: 1px dashed #eee; }
         .tips b { color: #2c3e50; }
 
         /* ===== CONTROLS ===== */
         .control-group { display: flex; flex-direction: column; gap: 10px; }
         .row { display: flex; align-items: center; gap: 10px; }
-        .label { width: 75px; font-weight: 700; font-size: .9em; flex-shrink: 0; color: #34495e; }
-        .pitch-badge { font-size: .7em; background: #27ae60; color: white; padding: 1px 5px; border-radius: 3px; margin-left: 3px; vertical-align: middle; }
+        .label { width: 80px; font-weight: 700; font-size: .9em; flex-shrink: 0; color: #34495e; }
+        .pitch-badge { font-size: .68em; background: #2980b9; color: white;
+                       padding: 1px 5px; border-radius: 3px; margin-left: 3px; vertical-align: middle; }
 
-        input[type=range] { flex: 1; height: 6px; border-radius: 3px; background: #bdc3c7; -webkit-appearance: none; outline: none; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; transition: .1s; }
+        input[type=range] { flex: 1; height: 6px; border-radius: 3px; background: #bdc3c7;
+                            -webkit-appearance: none; outline: none; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px;
+            border-radius: 50%; background: var(--primary); cursor: pointer; transition: .1s; }
         input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-        .val-badge { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; font-size: .75em; min-width: 38px; text-align: center; }
+        .val-badge { background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px;
+                     font-size: .75em; min-width: 38px; text-align: center; }
 
-        /* ===== PITCH BADGE COLORS ===== */
-        .pitch-badge.wsola { background: #2980b9; }
-        .pitch-badge.native { background: #27ae60; }
-        .pitch-badge.warn { background: #e67e22; }
+        /* ===== ALGO NOTE ===== */
+        .algo-note { font-size: .75em; color: #888; background: #f0f6fb; border: 1px solid #d0e8f5;
+                     border-radius: 4px; padding: 4px 8px; text-align: center; }
+        .algo-note b { color: #2980b9; }
+
+        /* ===== PROCESSING PANEL ===== */
+        .proc-panel { background: #f8f9fb; border: 1px solid #e0e6ee; border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .proc-panel-title { font-size: .85em; font-weight: 700; color: #555; margin-bottom: 2px; }
+        .proc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .proc-row label { font-size: .85em; color: #555; }
+        .proc-row input[type=checkbox] { margin: 0; }
+        .proc-row select { padding: 4px 6px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: .82em; background: white; }
+        .proc-row input[type=number].proc-num { width: 56px; padding: 4px; border: 1px solid #bdc3c7; border-radius: 4px; text-align: center; font-size: .82em; }
 
         /* ===== CUT PANEL ===== */
-        .cut-panel { background: #f4f6f7; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 8px; }
+        .cut-panel { background: #f4f6f7; padding: 10px; border-radius: 8px; border: 1px solid #e0e0e0;
+                     display: flex; flex-direction: column; gap: 8px; }
         .cut-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .time-input { width: 68px; padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px; text-align: center; font-family: monospace; font-weight: bold; color: var(--primary); }
-        .btn-preview { background: #34495e; color: white; border: none; padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: .9em; width: 100%; }
+        .time-input { width: 72px; padding: 5px; border: 1px solid #bdc3c7; border-radius: 4px;
+                      text-align: center; font-family: monospace; font-weight: bold; color: var(--primary); }
+        .btn-preview { background: #34495e; color: white; border: none; padding: 7px 12px;
+                       border-radius: 4px; cursor: pointer; font-size: .9em; width: 100%; }
         .btn-preview:hover { background: #2c3e50; }
 
+        /* ===== SILENCE DETECT ===== */
+        .silence-panel { background: #fff8e1; border: 1px solid #ffe082; padding: 10px;
+                         border-radius: 8px; display: flex; flex-direction: column; gap: 8px; }
+        .silence-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .silence-header label { font-size: .85em; color: #666; }
+        .input-mini { width: 56px; padding: 4px 5px; border: 1px solid #ffe082; border-radius: 4px;
+                      text-align: center; font-size: .85em; }
+        .btn-silence { background: #f39c12; color: white; border: none; padding: 6px 14px;
+                       border-radius: 4px; cursor: pointer; font-weight: bold; font-size: .85em; }
+        .btn-silence:hover { background: #d68910; }
+        .silence-segs { display: flex; flex-wrap: wrap; gap: 5px; }
+        .seg-chip { background: white; border: 1px solid #f39c12; border-radius: 12px;
+                    padding: 2px 9px; font-size: .78em; cursor: pointer; transition: .15s; color: #333; }
+        .seg-chip:hover { background: #fff3cd; }
+        .seg-chip.active { background: #f39c12; color: white; border-color: #e67e22; }
+
         /* ===== SPLIT PANEL ===== */
-        .split-panel { background: #fff8e1; border: 1px solid #ffe082; padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .input-mini { width: 52px; padding: 5px; border: 1px solid #ffe082; border-radius: 4px; text-align: center; }
-        .btn-split { background: #f39c12; color: white; border: none; padding: 6px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: .9em; }
+        .split-panel { background: #fff8e1; border: 1px solid #ffe082; padding: 10px;
+                       border-radius: 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .btn-split { background: #f39c12; color: white; border: none; padding: 6px 15px;
+                     border-radius: 4px; cursor: pointer; font-weight: bold; font-size: .9em; }
         .btn-split:hover { background: #d68910; }
 
         /* ===== EXPORT PANEL ===== */
@@ -82,58 +133,73 @@
         .setting-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px; margin-bottom: 10px; }
         .setting-item label { display: block; font-size: .75em; color: #95a5a6; margin-bottom: 3px; }
         select { width: 100%; padding: 6px; border: 1px solid #bdc3c7; border-radius: 4px; font-size: .85em; background: white; }
-        .btn-dl { width: 100%; padding: 12px; background: #27ae60; color: white; font-size: 1.05rem; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; box-shadow: 0 4px 0 #219150; transition: .1s; }
+        .btn-dl { width: 100%; padding: 12px; background: #27ae60; color: white; font-size: 1.05rem;
+                  border-radius: 6px; border: none; cursor: pointer; font-weight: bold;
+                  box-shadow: 0 4px 0 #219150; transition: .1s; }
         .btn-dl:active { transform: translateY(4px); box-shadow: none; }
         .btn-dl:hover { background: #229954; }
 
         /* ===== MERGE SECTION ===== */
-        .merge-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e8d5f5; padding-bottom: 10px; }
+        .merge-header { display: flex; justify-content: space-between; align-items: center;
+                        border-bottom: 1px solid #e8d5f5; padding-bottom: 10px; }
         .merge-file-list { display: flex; flex-direction: column; gap: 4px; min-height: 20px; }
-        .merge-empty { text-align: center; color: #aaa; font-size: .85em; padding: 12px; background: #fafafa; border: 1px dashed #ddd; border-radius: 6px; }
-
-        .merge-file-item {
-            display: flex; align-items: center; gap: 8px;
-            background: white; border: 1px solid #e0d0f0;
-            border-radius: 6px; padding: 7px 10px;
-            cursor: grab; transition: box-shadow .15s, opacity .15s;
-            user-select: none;
-        }
+        .merge-empty { text-align: center; color: #aaa; font-size: .85em; padding: 12px;
+                       background: #fafafa; border: 1px dashed #ddd; border-radius: 6px; }
+        .merge-file-item { display: flex; align-items: center; gap: 8px; background: white;
+            border: 1px solid #e0d0f0; border-radius: 6px; padding: 7px 10px;
+            cursor: grab; transition: box-shadow .15s, opacity .15s; user-select: none; }
         .merge-file-item:active { cursor: grabbing; }
         .merge-file-item.drag-over { border-color: var(--merge); box-shadow: 0 0 0 2px rgba(142,68,173,.3); }
         .merge-file-item.dragging { opacity: .4; }
         .drag-handle { font-size: 1.1em; color: #bbb; cursor: grab; }
         .merge-file-info { flex: 1; min-width: 0; }
-        .merge-file-name { font-size: .88em; font-weight: 600; color: #34495e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .merge-file-name { font-size: .88em; font-weight: 600; color: #34495e;
+                           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .merge-file-meta { font-size: .75em; color: #999; margin-top: 1px; }
-        .merge-file-num { width: 22px; height: 22px; border-radius: 50%; background: var(--merge); color: white; font-size: .75em; font-weight: bold; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .merge-file-num { width: 22px; height: 22px; border-radius: 50%; background: var(--merge);
+            color: white; font-size: .75em; font-weight: bold; display: flex;
+            align-items: center; justify-content: center; flex-shrink: 0; }
         .btn-remove { background: none; border: none; color: #e74c3c; cursor: pointer; font-size: 1.1em; padding: 0 2px; line-height: 1; }
         .btn-remove:hover { color: #c0392b; }
-
-        .merge-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding-top: 8px; border-top: 1px dashed #e0d0f0; }
+        .merge-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+                          padding-top: 8px; border-top: 1px dashed #e0d0f0; }
         .merge-info { flex: 1; font-size: .82em; color: #8e44ad; font-weight: 600; }
-        .btn-merge { background: var(--merge); color: white; border: none; padding: 9px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: .95em; box-shadow: 0 3px 0 #6c3483; transition: .1s; }
+        .btn-merge { background: var(--merge); color: white; border: none; padding: 9px 20px;
+            border-radius: 6px; cursor: pointer; font-weight: bold; font-size: .95em;
+            box-shadow: 0 3px 0 #6c3483; transition: .1s; }
         .btn-merge:active { transform: translateY(3px); box-shadow: none; }
         .btn-merge:hover { background: #7d3c98; }
         .btn-merge:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
-        .btn-clear-merge { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7; padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: .85em; }
+        .btn-clear-merge { background: #ecf0f1; color: #7f8c8d; border: 1px solid #bdc3c7;
+                           padding: 7px 12px; border-radius: 6px; cursor: pointer; font-size: .85em; }
         .btn-clear-merge:hover { background: #bdc3c7; color: white; }
-
         .merge-format-row { display: flex; gap: 10px; flex-wrap: wrap; }
         .merge-format-row .setting-item { flex: 1; min-width: 100px; }
 
+        /* ===== WSOLA 进度条 ===== */
+        .wsola-progress-wrap { display:none; align-items:center; gap:8px; background:#eaf4ff;
+            border:1px solid #aed6f1; border-radius:6px; padding:7px 12px; }
+        .wsola-progress-wrap.active { display:flex; }
+        .wsola-bar-track { flex:1; height:8px; background:#d0e8f5; border-radius:4px; overflow:hidden; }
+        .wsola-bar-fill  { height:100%; background:linear-gradient(90deg,#2980b9,#3498db);
+            border-radius:4px; width:0%; transition:width .2s ease; }
+        .wsola-pct { font-size:.8em; font-weight:700; color:#2980b9; min-width:36px; text-align:right; }
+        .wsola-label { font-size:.78em; color:#555; white-space:nowrap; }
+
         /* ===== LOADER ===== */
         .hidden { display: none !important; }
-        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,.95); z-index: 999; flex-direction: column; justify-content: center; align-items: center; }
-        .spinner { width: 30px; height: 30px; border: 3px solid #eee; border-top: 3px solid var(--primary); border-radius: 50%; animation: spin .8s linear infinite; }
+        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                  background: rgba(255,255,255,.95); z-index: 999; flex-direction: column;
+                  justify-content: center; align-items: center; }
+        .spinner { width: 30px; height: 30px; border: 3px solid #eee; border-top: 3px solid var(--primary);
+                   border-radius: 50%; animation: spin .8s linear infinite; }
         .loader-progress { margin-top: 8px; font-size: .85em; color: #888; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ===== MISC ===== */
         .sort-hint { font-size: .78em; color: #aaa; text-align: center; }
-
-        /* ===== WSOLA NOTE ===== */
-        .algo-note { font-size: .75em; color: #888; background: #f0f6fb; border: 1px solid #d0e8f5; border-radius: 4px; padding: 4px 8px; text-align: center; }
-        .algo-note b { color: #2980b9; }
+        .kbd { background: #eee; border: 1px solid #ccc; border-radius: 3px;
+               padding: 1px 4px; font-size: .78em; font-family: monospace; color: #555; }
     </style>
 </head>
 <body>
@@ -149,14 +215,18 @@
     <!-- ===== SINGLE FILE EDITOR ===== -->
     <div class="card">
         <div class="header">
-            <h1>🎧 Web 音频工坊 V14</h1>
-            <button class="btn-sm" onclick="resetParams()">↺ 重置参数</button>
+            <h1>🎧 Web 音频工坊 V15</h1>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn-sm" id="btnNormalize" style="display:none" onclick="doNormalize()">📊 标准化音量</button>
+                <button class="btn-sm" onclick="resetParams()">↺ 重置参数</button>
+            </div>
         </div>
 
-        <div class="upload-box" onclick="document.getElementById('fileInput').click()">
+        <!-- 上传框（支持拖拽） -->
+        <div class="upload-box" id="uploadBox" onclick="document.getElementById('fileInput').click()">
             <div class="upload-icon">👆</div>
             <div class="upload-text">
-                <h3>点击上传音频文件</h3>
+                <h3>点击或拖拽音频文件到此处</h3>
                 <p>支持 MP3, M4A, WAV, AAC, FLAC 等</p>
             </div>
             <input type="file" id="fileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac" style="display:none">
@@ -171,12 +241,24 @@
             </div>
 
             <div class="tips">
-                🖱️ <b>单击</b>波形：从该处播放 &nbsp;|&nbsp; 🖱️🖱️ <b>双击</b>：依次设置 <span style="color:var(--start)">起点</span> / <span style="color:var(--end)">终点</span>
+                🖱️ <b>单击</b>波形：从该处播放 &nbsp;|&nbsp;
+                🖱️🖱️ <b>双击</b>：依次设置 <span style="color:var(--start)">起点</span> / <span style="color:var(--end)">终点</span> &nbsp;|&nbsp;
+                <span class="kbd">Space</span> 播/停 &nbsp;
+                <span class="kbd">←</span><span class="kbd">→</span> 微调起终点
             </div>
 
-            <div class="vis-container" id="waveformBox">
-                <canvas id="visualizer"></canvas>
-                <div id="playHead" class="play-head"></div>
+            <!-- 波形 + 缩放 -->
+            <div class="vis-wrapper">
+                <div class="vis-container" id="waveformBox">
+                    <canvas id="visualizer"></canvas>
+                    <div id="playHead" class="play-head"></div>
+                </div>
+                <div class="zoom-bar">
+                    <span>🔍 缩放</span>
+                    <input type="range" id="zoomInput" min="1" max="20" step="0.5" value="1">
+                    <span id="zoomVal">1x</span>
+                    <span style="margin-left:auto;font-size:.75em;color:#aaa">拖动波形可平移</span>
+                </div>
             </div>
 
             <div class="row" style="margin-top:2px;">
@@ -184,40 +266,75 @@
                 <span id="timeDisplay" style="font-family:monospace;margin-left:auto;color:#2c3e50;font-weight:bold;font-size:1.1em;">00:00.00</span>
             </div>
 
+            <!-- 变速 / 音量 / 特效 -->
             <div class="control-group">
                 <div class="row">
-                    <div class="label">🚀 变速 <span class="pitch-badge wsola" id="speedBadge">WSOLA变速不变调</span></div>
+                    <div class="label">🚀 变速 <span class="pitch-badge">WSOLA变速不变调</span></div>
                     <input type="range" id="rateInput" min="0.5" max="2.0" step="0.05" value="1.0">
                     <div class="val-badge" id="rateVal">1.0x</div>
                 </div>
-                <div class="algo-note" id="algoNote">
-                    🎵 <b>WSOLA 算法</b>：和苹果播客相同原理，变速时音调完全不变（导出也一样）
+                <div class="algo-note">
+                    🎵 <b>WSOLA 算法</b>：和苹果播客相同原理，变速时音调完全不变（播放与导出一致）
                 </div>
                 <div class="row">
                     <div class="label">🔊 音量</div>
                     <input type="range" id="volInput" min="0" max="3" step="0.1" value="1.0">
                     <div class="val-badge" id="volVal">100%</div>
                 </div>
-                <div class="row">
-                    <div class="label">👻 特效</div>
-                    <input type="checkbox" id="reverseCheck" style="margin:0;">
-                    <label for="reverseCheck" style="font-size:.9em;margin:0;">倒放选区</label>
+            </div>
+
+            <!-- 处理选项：倒放 + 淡入淡出 -->
+            <div class="proc-panel">
+                <div class="proc-panel-title">🎛️ 处理选项</div>
+                <div class="proc-row">
+                    <input type="checkbox" id="reverseCheck">
+                    <label for="reverseCheck">倒放选区</label>
+                    <span style="margin-left:16px;color:#bbb">|</span>
+                    <input type="checkbox" id="fadeInCheck" style="margin-left:10px;">
+                    <label for="fadeInCheck">淡入</label>
+                    <input type="number" id="fadeInMs" class="proc-num" value="200" min="0" max="5000" step="50"> ms
+                    <span style="margin-left:10px;color:#bbb">|</span>
+                    <input type="checkbox" id="fadeOutCheck" style="margin-left:10px;">
+                    <label for="fadeOutCheck">淡出</label>
+                    <input type="number" id="fadeOutMs" class="proc-num" value="200" min="0" max="5000" step="50"> ms
                 </div>
             </div>
 
+            <!-- 起终点选区 -->
             <div class="cut-panel">
                 <div class="cut-row">
                     <div class="label" style="width:auto;color:var(--start)">✂️ 起点:</div>
-                    <input type="number" id="trimStart" class="time-input" value="0.00" step="0.1" min="0">
+                    <input type="number" id="trimStart" class="time-input" value="0.00" step="0.01" min="0">
                     <div style="width:8px;"></div>
                     <div class="label" style="width:auto;color:var(--end)">✂️ 终点:</div>
-                    <input type="number" id="trimEnd" class="time-input" value="0.00" step="0.1" min="0">
+                    <input type="number" id="trimEnd" class="time-input" value="0.00" step="0.01" min="0">
+                    <button class="btn-sm" onclick="selectAll()" style="margin-left:auto;">全选</button>
                 </div>
                 <div class="cut-row">
                     <button class="btn-preview" id="btnPlaySeg">▶ 预览选中片段</button>
                 </div>
+                <!-- WSOLA 进度条（变速时显示） -->
+                <div class="wsola-progress-wrap" id="wsolaProgressWrap">
+                    <span class="wsola-label">🔧 WSOLA变速中</span>
+                    <div class="wsola-bar-track"><div class="wsola-bar-fill" id="wsolaBarFill"></div></div>
+                    <span class="wsola-pct" id="wsolaPct">0%</span>
+                </div>
             </div>
 
+            <!-- 静音检测 -->
+            <div class="silence-panel">
+                <div class="silence-header">
+                    <span style="font-size:.9em;font-weight:bold;color:#f39c12">🔇 静音检测自动分段</span>
+                    <label>阈值</label>
+                    <input type="number" id="silenceThresh" class="input-mini" value="-40" min="-80" max="-10" step="1"> dB
+                    <label>最短静音</label>
+                    <input type="number" id="silenceMinLen" class="input-mini" value="0.3" min="0.1" max="5" step="0.1"> 秒
+                    <button class="btn-silence" id="btnDetectSilence" onclick="detectSilence()">🔍 检测</button>
+                </div>
+                <div class="silence-segs" id="silenceSegs" style="display:none"></div>
+            </div>
+
+            <!-- 自动分段切分 -->
             <div class="split-panel">
                 <span style="font-size:.9em;font-weight:bold;color:#f39c12">📂 自动分段:</span>
                 <span style="font-size:.85em;color:#666">切分为</span>
@@ -226,6 +343,7 @@
                 <button class="btn-split" id="btnBatchSplit">⚡ 批量切分并下载</button>
             </div>
 
+            <!-- 导出 -->
             <div class="export-panel">
                 <div class="setting-grid">
                     <div class="setting-item">
@@ -235,7 +353,13 @@
                     <div class="setting-item" id="bitrateGroup">
                         <label>码率</label>
                         <select id="exportBitrate">
-                            <option value="320">320k</option><option value="128" selected>128k</option><option value="64">64k</option>
+                            <option value="320">320k（无损感）</option>
+                            <option value="192">192k（高质量）</option>
+                            <option value="128" selected>128k（推荐）</option>
+                            <option value="96">96k</option>
+                            <option value="64">64k（语音够用）</option>
+                            <option value="48">48k（语音）</option>
+                            <option value="32">32k（语音省空间）</option>
                         </select>
                     </div>
                     <div class="setting-item">
@@ -264,10 +388,10 @@
             <span style="font-size:.8em;color:#999">拖拽排序 · 支持所有音频格式</span>
         </div>
 
-        <div class="upload-box merge-box" onclick="document.getElementById('mergeFileInput').click()">
+        <div class="upload-box merge-box" id="mergeUploadBox" onclick="document.getElementById('mergeFileInput').click()">
             <div class="upload-icon">📂</div>
             <div class="upload-text">
-                <h3>点击选择多个音频文件</h3>
+                <h3>点击或拖拽多个音频文件到此处</h3>
                 <p>MP3, WAV, M4A, AAC, FLAC, OGG 均可 · 可多次添加</p>
             </div>
             <input type="file" id="mergeFileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac,.ogg" multiple style="display:none">
@@ -287,7 +411,14 @@
             <div class="setting-item" id="mergeBitrateGroup">
                 <label>码率</label>
                 <select id="mergeBitrate">
-                    <option value="320">320k</option><option value="128" selected>128k</option><option value="64">64k</option>
+                <select id="mergeBitrate">
+                    <option value="320">320k（无损感）</option>
+                    <option value="192">192k（高质量）</option>
+                    <option value="128" selected>128k（推荐）</option>
+                    <option value="96">96k</option>
+                    <option value="64">64k（语音够用）</option>
+                    <option value="48">48k（语音）</option>
+                    <option value="32">32k（语音省空间）</option>
                 </select>
             </div>
             <div class="setting-item">
@@ -297,6 +428,11 @@
                     <option value="44100">44100 Hz</option>
                     <option value="22050">22050 Hz</option>
                 </select>
+            </div>
+            <div class="setting-item">
+                <label>段间静音 (秒)</label>
+                <input type="number" id="mergeGap" value="0" min="0" max="10" step="0.5"
+                       style="width:100%;padding:6px;border:1px solid #bdc3c7;border-radius:4px;font-size:.85em;text-align:center;">
             </div>
         </div>
 
@@ -311,143 +447,148 @@
 
 <script>
 // ==========================================
-//  WSOLA TIME-STRETCHER (变速不变调)
+//  WSOLA — Web Worker 实现（真后台线程，主线程完全不卡）
 //  算法：Waveform Similarity Overlap-Add
-//  同苹果播客、YouTube等的底层原理相同
 // ==========================================
-class WSOLAStretcher {
-    constructor(sampleRate) {
-        this.sampleRate = sampleRate;
-        // 参数调优：针对语音/播客内容
-        this.windowMs  = 25;   // 分析窗口 25ms（对语音效果好）
-        this.overlapMs = 12;   // 重叠 12ms
-        this.seekMs    = 15;   // 相似性搜索范围 ±15ms
-    }
 
-    /**
-     * 对单声道 Float32Array 进行时间拉伸
-     * @param {Float32Array} input  原始采样
-     * @param {number} rate         播放速率，>1 加速，<1 减速
-     * @returns {Float32Array}      处理后采样（长度 ≈ input.length / rate）
-     */
-    stretch(input, rate) {
-        if (Math.abs(rate - 1.0) < 0.01) return input.slice(); // 1x 直接返回
+// Worker 源码嵌入为字符串，通过 Blob URL 创建，无需外部文件
+const WSOLA_WORKER_SRC = `
+function wsolaStretch(input, rate, sr, id, chIdx, numCh) {
+    if (Math.abs(rate - 1.0) < 0.005) return input.slice();
 
-        const sr = this.sampleRate;
-        const windowSize  = Math.round(sr * this.windowMs  / 1000);
-        const overlapSize = Math.round(sr * this.overlapMs / 1000);
-        const seekSize    = Math.round(sr * this.seekMs    / 1000);
-        const hopSynth    = windowSize - overlapSize;          // 合成步长（固定）
-        const hopAnalysis = Math.round(hopSynth * rate);       // 分析步长
+    // ── 自适应参数（速率越极端窗口越大，参考 SoundTouch 默认值）──
+    const dev         = Math.abs(rate - 1.0);
+    const windowMs    = 30 + dev * 20;              // 1.0x→30ms, 1.5x→40ms, 2.0x→50ms
+    const overlapMs   = windowMs * 0.58;             // 58% 重叠（SoundTouch 推荐）
+    const hopSynthMs  = windowMs - overlapMs;
+    const seekMs      = hopSynthMs * rate * 1.6;     // 保证搜索 ≥ 1.5 hop，充分寻优
 
-        // 汉宁窗
-        const hannWindow = new Float32Array(windowSize);
-        for (let i = 0; i < windowSize; i++) {
-            hannWindow[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSize - 1)));
-        }
+    const windowSize  = Math.round(sr * windowMs   / 1000);
+    const overlapSize = Math.round(sr * overlapMs  / 1000);
+    const seekSize    = Math.round(sr * seekMs     / 1000);
+    const hopSynth    = windowSize - overlapSize;
+    const hopAnalysis = Math.round(hopSynth * rate);
 
-        const outputLen = Math.ceil(input.length / rate) + windowSize * 2;
-        const output    = new Float32Array(outputLen);
-        const normBuf   = new Float32Array(outputLen); // 归一化累积窗口
+    // ── 汉宁窗 ──
+    const hann = new Float32Array(windowSize);
+    for (let i = 0; i < windowSize; i++)
+        hann[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSize - 1)));
 
-        let analysisPos = 0;
-        let synthPos    = 0;
+    const outputLen = Math.ceil(input.length / rate) + windowSize * 2;
+    const output  = new Float32Array(outputLen);
+    const normBuf = new Float32Array(outputLen);
 
-        while (analysisPos + windowSize <= input.length) {
-            // ---- 找最佳匹配帧（WSOLA 核心）----
-            let bestOffset = 0;
-            let bestCorr   = -Infinity;
+    const totalFrames = Math.ceil((input.length - windowSize) / hopAnalysis);
+    const reportEvery = Math.max(1, Math.floor(totalFrames / 50));
+    let frameIdx = 0, aPos = 0, sPos = 0;
 
-            if (synthPos > overlapSize) {
-                // 在前一帧的合成结尾附近搜索相似波形
-                const prevStart = synthPos - overlapSize;
-                const prevFrame = output.slice(prevStart, prevStart + overlapSize);
-
-                const searchStart = Math.max(0, analysisPos - seekSize);
-                const searchEnd   = Math.min(input.length - windowSize, analysisPos + seekSize);
-
-                for (let delta = searchStart - analysisPos; delta <= searchEnd - analysisPos; delta++) {
-                    const testPos = analysisPos + delta;
-                    if (testPos < 0 || testPos + overlapSize > input.length) continue;
-
-                    // 归一化互相关（只看重叠区）
-                    let corr = 0, normA = 0, normB = 0;
-                    for (let k = 0; k < overlapSize; k++) {
-                        const a = prevFrame[k];
-                        const b = input[testPos + k];
-                        corr  += a * b;
-                        normA += a * a;
-                        normB += b * b;
-                    }
-                    const denom = Math.sqrt(normA * normB) + 1e-10;
-                    const score = corr / denom;
-
-                    if (score > bestCorr) {
-                        bestCorr   = score;
-                        bestOffset = delta;
-                    }
+    while (aPos + windowSize <= input.length) {
+        // ── 相似性搜索：在 ±seekSize 范围内找与上一帧末尾最相似的起点 ──
+        let bestOff = 0, bestCorr = -Infinity;
+        if (sPos >= overlapSize) {
+            // 只比对重叠区（overlapSize 个样本），不比整个窗口，速度更快
+            const prevEnd = sPos;           // 上一帧合成结尾在 output 中的位置
+            const s0 = Math.max(0,                        aPos - seekSize);
+            const s1 = Math.min(input.length - windowSize, aPos + seekSize);
+            for (let tp = s0; tp <= s1; tp++) {
+                let corr = 0, nA = 0, nB = 0;
+                for (let k = 0; k < overlapSize; k++) {
+                    const a = output[prevEnd - overlapSize + k];
+                    const b = input[tp + k];
+                    corr += a * b; nA += a * a; nB += b * b;
                 }
+                const score = corr / (Math.sqrt(nA * nB) + 1e-10);
+                if (score > bestCorr) { bestCorr = score; bestOff = tp - aPos; }
             }
-
-            const readPos = analysisPos + bestOffset;
-
-            // ---- 加窗叠加 ----
-            for (let i = 0; i < windowSize; i++) {
-                const si = synthPos + i;
-                if (si >= outputLen) break;
-                const w = hannWindow[i];
-                output[si]  += input[readPos + i] * w;
-                normBuf[si] += w;
-            }
-
-            analysisPos += hopAnalysis;
-            synthPos    += hopSynth;
         }
 
-        // ---- 归一化（防止叠加产生的增益误差）----
-        const finalLen = Math.min(synthPos + windowSize, outputLen);
-        const result   = new Float32Array(finalLen);
-        for (let i = 0; i < finalLen; i++) {
-            result[i] = normBuf[i] > 1e-6 ? output[i] / normBuf[i] : 0;
+        // ── 加窗叠加（OLA）──
+        const rPos = aPos + bestOff;
+        for (let i = 0; i < windowSize; i++) {
+            const si = sPos + i;
+            if (si >= outputLen) break;
+            output[si]  += input[rPos + i] * hann[i];
+            normBuf[si] += hann[i];
         }
 
-        // 精确裁剪到目标长度
-        const targetLen = Math.round(input.length / rate);
-        return result.slice(0, Math.min(targetLen, result.length));
+        aPos += hopAnalysis;
+        sPos += hopSynth;
+        frameIdx++;
+
+        if (frameIdx % reportEvery === 0) {
+            const overall = (chIdx + frameIdx / totalFrames) / numCh;
+            self.postMessage({ type: 'progress', id, pct: Math.min(99, Math.round(overall * 100)) });
+        }
     }
 
-    /**
-     * 处理多声道 AudioBuffer
-     * @param {AudioContext} ctx
-     * @param {AudioBuffer} buffer  原始缓冲区
-     * @param {number} rate         速率
-     * @param {number} targetSR     目标采样率
-     * @param {number} targetCh     目标声道数
-     * @returns {AudioBuffer}
-     */
-    stretchBuffer(ctx, buffer, rate, targetSR, targetCh) {
-        // 如采样率不同，先用 OfflineAudioContext 重采样（同步无法做，调用方异步处理）
-        const numCh = Math.min(buffer.numberOfChannels, targetCh);
-        const stretchedCh = [];
+    // ── 归一化 ──
+    const finalLen = Math.min(sPos + windowSize, outputLen);
+    const result   = new Float32Array(finalLen);
+    for (let i = 0; i < finalLen; i++)
+        result[i] = normBuf[i] > 1e-6 ? output[i] / normBuf[i] : 0;
 
-        for (let ch = 0; ch < numCh; ch++) {
-            const data = buffer.getChannelData(ch);
-            stretchedCh.push(this.stretch(data, rate));
-        }
-
-        // 若目标声道数 > 源声道数，复制第一声道
-        while (stretchedCh.length < targetCh) {
-            stretchedCh.push(stretchedCh[0].slice());
-        }
-
-        const outLen = stretchedCh[0].length;
-        const out = ctx.createBuffer(targetCh, outLen, targetSR);
-        for (let ch = 0; ch < targetCh; ch++) {
-            out.getChannelData(ch).set(stretchedCh[ch]);
-        }
-        return out;
-    }
+    return result.slice(0, Math.min(Math.round(input.length / rate), result.length));
 }
+self.onmessage = function(e) {
+    const { channels, rate, sr, id } = e.data;
+    const stretched = channels.map((ch, i) => wsolaStretch(ch, rate, sr, id, i, channels.length));
+    self.postMessage({ type: 'done', id, stretched }, stretched.map(a => a.buffer));
+};
+`;
+
+// Worker 单例 + 回调表（分 progress / done 两种）
+let _worker = null;
+const _doneCbs     = new Map(); // id -> resolve fn
+const _progressCbs = new Map(); // id -> progress fn
+let _idCnt = 0;
+
+function getWsolaWorker() {
+    if (_worker) return _worker;
+    const url = URL.createObjectURL(new Blob([WSOLA_WORKER_SRC], { type: 'application/javascript' }));
+    _worker = new Worker(url);
+    _worker.onmessage = e => {
+        const { type, id, pct, stretched } = e.data;
+        if (type === 'progress') {
+            const cb = _progressCbs.get(id);
+            if (cb) cb(pct);
+        } else if (type === 'done') {
+            const cb = _doneCbs.get(id);
+            _doneCbs.delete(id);
+            _progressCbs.delete(id);
+            if (cb) cb(stretched);
+        }
+    };
+    _worker.onerror = err => console.error('WSOLA Worker error:', err);
+    return _worker;
+}
+
+/**
+ * 对 AudioBuffer 做 WSOLA 变速（Worker 后台运行，主线程零阻塞）
+ * @param {AudioBuffer} srcBuffer
+ * @param {number} rate
+ * @param {function} [onProgress]  可选，接收 0-99 的整数百分比
+ */
+function wsolaStretchBuffer(srcBuffer, rate, onProgress) {
+    if (Math.abs(rate - 1.0) < 0.005) return Promise.resolve(srcBuffer);
+    const numCh = srcBuffer.numberOfChannels;
+    const sr    = srcBuffer.sampleRate;
+    const channels = [], transfers = [];
+    for (let ch = 0; ch < numCh; ch++) {
+        const c = srcBuffer.getChannelData(ch).slice();
+        channels.push(c); transfers.push(c.buffer);
+    }
+    const id = ++_idCnt;
+    return new Promise(resolve => {
+        if (onProgress) _progressCbs.set(id, onProgress);
+        _doneCbs.set(id, stretched => {
+            const out = getAudioCtx().createBuffer(numCh, stretched[0].length, sr);
+            for (let ch = 0; ch < numCh; ch++) out.getChannelData(ch).set(stretched[ch]);
+            resolve(out);
+        });
+        getWsolaWorker().postMessage({ id, channels, rate, sr }, transfers);
+    });
+}
+
 
 // ==========================================
 //  SHARED STATE
@@ -460,7 +601,7 @@ function getAudioCtx() {
 }
 
 const el = id => document.getElementById(id);
-const fmt = (s, f=2) => s.toFixed(f);
+const fmt = (s, f=2) => (+s).toFixed(f);
 
 function showLoader(t, prog='') { el('loader').style.display='flex'; el('loaderText').innerText=t; el('loaderProgress').innerText=prog; }
 function setLoaderProg(t) { el('loaderProgress').innerText=t; }
@@ -474,6 +615,7 @@ function triggerDownload(blob, name) {
 }
 
 function formatTimeFull(s) {
+    s = Math.max(0, s);
     const m=Math.floor(s/60), sec=Math.floor(s%60), ms=Math.floor((s%1)*100);
     return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}.${ms.toString().padStart(2,'0')}`;
 }
@@ -506,44 +648,100 @@ function bufferToWave(b, len) {
 }
 
 // ==========================================
+//  AUDIO PROCESSING UTILS
+// ==========================================
+
+/** 淡入淡出：直接修改 buffer 数据 */
+function applyFade(buffer, fadeInSamples, fadeOutSamples) {
+    if (fadeInSamples <= 0 && fadeOutSamples <= 0) return;
+    const len = buffer.length;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+        const d = buffer.getChannelData(ch);
+        for (let i = 0; i < Math.min(fadeInSamples, len); i++)
+            d[i] *= i / fadeInSamples;
+        for (let i = 0; i < Math.min(fadeOutSamples, len); i++)
+            d[len - 1 - i] *= i / fadeOutSamples;
+    }
+}
+
+/** 音量标准化：找峰值，缩放到 -1dBFS */
+function normalizeBuffer(buffer) {
+    let peak = 0;
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+        const d = buffer.getChannelData(ch);
+        for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; }
+    }
+    if (peak < 0.001 || peak >= 0.891) return; // 已经够响或太静
+    const gain = 0.891 / peak; // ~-1 dBFS
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+        const d = buffer.getChannelData(ch);
+        for (let i = 0; i < d.length; i++) d[i] = Math.max(-1, Math.min(1, d[i] * gain));
+    }
+}
+
+/** 生成静音 buffer（用于合并间隔） */
+function makeSilenceBuffer(ctx, durationSec, sampleRate, channels) {
+    if (durationSec <= 0) return null;
+    const frames = Math.round(durationSec * sampleRate);
+    return ctx.createBuffer(channels, frames, sampleRate);
+}
+
+// ==========================================
 //  SINGLE FILE EDITOR
 // ==========================================
 let originalBuffer = null;
 let sourceNode = null, gainNode = null;
 let isPlaying = false, startTime = 0, startOffset = 0, playMode = 'full';
+let isPlayPending = false; // 防止 WSOLA 计算期间重复触发
 let nextClickIsStart = true;
 let rawFileName = "audio";
 
-// 播放专用：WSOLA 处理缓存，避免每次点击都重新计算
+// 波形缩放 & 平移
+let zoomLevel = 1;   // 1 = 全局视图
+let zoomOffset = 0;  // 0~1，当前视图起始位置（比例）
+let isDragging = false, dragStartX = 0, dragStartOffset = 0;
+
+// WSOLA 缓存
 let wsolaCache = { rate: null, buffer: null };
 
 const UI = {
-    file:      el('fileInput'),
-    workspace: el('workspace'),
-    btnSeg:    el('btnPlaySeg'),
-    btnStop:   el('btnStop'),
-    tStart:    el('trimStart'),
-    tEnd:      el('trimEnd'),
-    head:      el('playHead'),
-    time:      el('timeDisplay'),
-    cvsBox:    el('waveformBox'),
-    cvs:       el('visualizer'),
-    rate:      el('rateInput'),
-    rateVal:   el('rateVal'),
-    vol:       el('volInput'),
-    volVal:    el('volVal'),
-    rev:       el('reverseCheck'),
-    fmt:       el('exportFormat'),
-    br:        el('exportBitrate'),
-    est:       el('estSizeDisplay'),
-    splitN:    el('splitCount'),
-    btnSplit:  el('btnBatchSplit'),
-    btnDl:     el('btnDownload'),
+    file:        el('fileInput'),
+    workspace:   el('workspace'),
+    btnSeg:      el('btnPlaySeg'),
+    btnStop:     el('btnStop'),
+    tStart:      el('trimStart'),
+    tEnd:        el('trimEnd'),
+    head:        el('playHead'),
+    time:        el('timeDisplay'),
+    cvsBox:      el('waveformBox'),
+    cvs:         el('visualizer'),
+    rate:        el('rateInput'),
+    rateVal:     el('rateVal'),
+    vol:         el('volInput'),
+    volVal:      el('volVal'),
+    rev:         el('reverseCheck'),
+    fadeIn:      el('fadeInCheck'),
+    fadeInMs:    el('fadeInMs'),
+    fadeOut:     el('fadeOutCheck'),
+    fadeOutMs:   el('fadeOutMs'),
+    fmt:         el('exportFormat'),
+    br:          el('exportBitrate'),
+    est:         el('estSizeDisplay'),
+    splitN:      el('splitCount'),
+    btnSplit:    el('btnBatchSplit'),
+    btnDl:       el('btnDownload'),
+    zoom:        el('zoomInput'),
+    zoomVal:     el('zoomVal'),
 };
 
+// ---- File load ----
 UI.file.addEventListener('change', async function() {
     if (!this.files.length) return;
-    const file = this.files[0]; this.value='';
+    await loadAudioFile(this.files[0]);
+    this.value='';
+});
+
+async function loadAudioFile(file) {
     showLoader('正在解码...');
     rawFileName = file.name.replace(/\.[^/.]+$/,'');
     try {
@@ -554,29 +752,78 @@ UI.file.addEventListener('change', async function() {
         el('mDur').innerText  = formatTimeFull(originalBuffer.duration).split('.')[0];
         el('mParams').innerText = `${originalBuffer.sampleRate}Hz / ${originalBuffer.numberOfChannels}ch`;
         el('mBitrate').innerText = `~${Math.round((file.size*8)/originalBuffer.duration/1000)}kbps`;
-        UI.tStart.value='0.00';
-        UI.tEnd.value=fmt(originalBuffer.duration);
-        nextClickIsStart=true;
-        wsolaCache = { rate: null, buffer: null }; // 清空缓存
+        UI.tStart.value = '0.00';
+        UI.tEnd.value   = fmt(originalBuffer.duration);
+        nextClickIsStart = true;
+        wsolaCache = { rate: null, buffer: null };
+        zoomLevel = 1; zoomOffset = 0;
+        UI.zoom.value = 1; UI.zoomVal.innerText = '1x';
+        stopPlayback();
         UI.workspace.classList.remove('hidden');
-        stopAudio();
+        el('btnNormalize').style.display = '';
         drawStaticWave();
         updateEstimate();
-    } catch(e) { alert('解码失败: '+e.message); } finally { hideLoader(); }
+        el('silenceSegs').style.display = 'none';
+        el('silenceSegs').innerHTML = '';
+    } catch(e) { alert('解码失败: '+e.message); }
+    finally { hideLoader(); }
+}
+
+// ---- Drag & drop upload (single file) ----
+setupDropZone(el('uploadBox'), files => { if(files.length) loadAudioFile(files[0]); });
+
+function setupDropZone(box, onFiles) {
+    box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('dragover'); });
+    box.addEventListener('dragleave', ()=> box.classList.remove('dragover'));
+    box.addEventListener('drop', e => {
+        e.preventDefault(); box.classList.remove('dragover');
+        const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(f.name));
+        if (files.length) onFiles(files);
+    });
+}
+
+// ---- Zoom & pan ----
+UI.zoom.addEventListener('input', function() {
+    zoomLevel = parseFloat(this.value);
+    UI.zoomVal.innerText = zoomLevel.toFixed(1)+'x';
+    // clamp offset
+    zoomOffset = Math.min(zoomOffset, 1 - 1/zoomLevel);
+    drawStaticWave();
 });
 
-// ---- Live rate/volume ----
+// Pan via mouse drag on waveform
+let isMouseDown = false;
+UI.cvsBox.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    isMouseDown = true;
+    isDragging = false;
+    dragStartX = e.clientX;
+    dragStartOffset = zoomOffset;
+    UI.cvsBox.style.cursor = 'grabbing';
+});
+window.addEventListener('mousemove', e => {
+    if (!isMouseDown) return;
+    const dx = e.clientX - dragStartX;
+    if (Math.abs(dx) > 4) isDragging = true;
+    const w  = UI.cvsBox.getBoundingClientRect().width;
+    const dPct = dx / w / zoomLevel;
+    zoomOffset = Math.max(0, Math.min(1 - 1/zoomLevel, dragStartOffset - dPct));
+    drawStaticWave();
+});
+window.addEventListener('mouseup', () => { isMouseDown = false; UI.cvsBox.style.cursor = ''; });
+
+// ---- Rate/volume ----
 UI.rate.addEventListener('input', function() {
     const val = parseFloat(this.value);
     UI.rateVal.innerText = val.toFixed(2)+'x';
-    wsolaCache = { rate: null, buffer: null }; // 速率变了，清缓存
-    // 实时播放中：停止并重新用新速率播放（WSOLA 无法实时动态修改）
-    if (isPlaying) {
-        const curMode = playMode;
-        stopAudio(false, true);
-        playAudio(curMode);
-    }
+    wsolaCache = { rate: null, buffer: null };
     updateEstimate();
+    // 如果正在播放，重新播放
+    if (isPlaying && !isPlayPending) {
+        const curMode = playMode;
+        stopPlayback();
+        startPlayback(curMode);
+    }
 });
 UI.vol.addEventListener('input', function() {
     const val = parseFloat(this.value);
@@ -586,18 +833,22 @@ UI.vol.addEventListener('input', function() {
 
 // ---- Wave click / dblclick ----
 UI.cvsBox.addEventListener('click', e => {
-    if (!originalBuffer) return;
+    if (!originalBuffer || isDragging) { isDragging = false; return; }
     const pct = getClickPct(e);
-    startOffset = pct * originalBuffer.duration;
+    // 换算回原始时间轴
+    const viewPct = zoomOffset + pct / zoomLevel;
+    startOffset = viewPct * originalBuffer.duration;
     playMode = 'full';
-    stopAudio(false, false);
-    playAudio('full');
+    stopPlayback(false, false);
+    startPlayback('full');
 });
 
 UI.cvsBox.addEventListener('dblclick', e => {
     e.stopPropagation();
     if (!originalBuffer) return;
-    const t = getClickPct(e) * originalBuffer.duration;
+    const pct = getClickPct(e);
+    const viewPct = zoomOffset + pct / zoomLevel;
+    const t = viewPct * originalBuffer.duration;
     if (nextClickIsStart) {
         if (t >= parseFloat(UI.tEnd.value)) UI.tEnd.value = fmt(originalBuffer.duration);
         UI.tStart.value = fmt(t);
@@ -615,90 +866,123 @@ function getClickPct(e) {
     return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
 }
 
-// ---- Playback ----
-UI.btnSeg.addEventListener('click', () => {
-    if (isPlaying && playMode==='segment') stopAudio();
-    else { stopAudio(); playAudio('segment'); }
-});
-UI.btnStop.addEventListener('click', () => stopAudio());
-
-/**
- * 播放（WSOLA 变速）
- * 注意：WSOLA 是离线处理，先计算好整个变速缓冲区再播放
- * 对于全文件播放从中间 seek 的场景，我们按需截取已处理的缓冲区
- */
-function playAudio(mode) {
+// ---- Keyboard shortcuts ----
+document.addEventListener('keydown', e => {
     if (!originalBuffer) return;
-    const ctx = getAudioCtx();
-    playMode = mode;
+    const tag = document.activeElement.tagName.toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (isPlaying) stopPlayback();
+        else startPlayback('full');
+    }
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+        e.preventDefault();
+        const step = e.shiftKey ? 1.0 : 0.1;
+        const dir = e.code === 'ArrowLeft' ? -step : step;
+        // 移动当前焦点：起点或终点
+        if (nextClickIsStart === false) {
+            // 下次设的是终点，所以调整终点
+            UI.tEnd.value = fmt(Math.max(parseFloat(UI.tStart.value)+0.1, Math.min(originalBuffer.duration, parseFloat(UI.tEnd.value)+dir)));
+        } else {
+            UI.tStart.value = fmt(Math.max(0, Math.min(parseFloat(UI.tEnd.value)-0.1, parseFloat(UI.tStart.value)+dir)));
+        }
+        drawStaticWave(); updateEstimate();
+    }
+});
+
+// ---- Playback ----
+UI.btnSeg.addEventListener('click', async () => {
+    if (isPlayPending) return;
+    if (isPlaying && playMode === 'segment') stopPlayback();
+    else { stopPlayback(); await startPlayback('segment'); }
+});
+UI.btnStop.addEventListener('click', () => stopPlayback());
+
+async function startPlayback(mode) {
+    if (!originalBuffer || isPlayPending) return;
+    isPlayPending = true;
+
     const rate = parseFloat(UI.rate.value);
-    const vol  = parseFloat(UI.vol.value);
+    const needsWsola = Math.abs(rate - 1.0) >= 0.005;
 
-    let bufToPlay;
-    let playStartSec = 0;
-
+    // 立即反馈
     if (mode === 'segment') {
-        // 片段模式：取选区，WSOLA 处理
-        const seg = getSegmentBuffer(UI.rev.checked);
-        if (!seg) return;
-        if (Math.abs(rate - 1.0) < 0.01) {
-            bufToPlay = seg;
-        } else {
-            const stretcher = new WSOLAStretcher(seg.sampleRate);
-            bufToPlay = stretcher.stretchBuffer(ctx, seg, rate, seg.sampleRate, seg.numberOfChannels);
-        }
-    } else {
-        // 全文件模式：WSOLA 处理整个文件（使用缓存避免重复计算）
-        let stretchedFull;
-        if (Math.abs(rate - 1.0) < 0.01) {
-            stretchedFull = originalBuffer;
-        } else if (wsolaCache.rate === rate && wsolaCache.buffer) {
-            stretchedFull = wsolaCache.buffer;
-        } else {
-            const stretcher = new WSOLAStretcher(originalBuffer.sampleRate);
-            stretchedFull = stretcher.stretchBuffer(ctx, originalBuffer, rate, originalBuffer.sampleRate, originalBuffer.numberOfChannels);
-            wsolaCache = { rate, buffer: stretchedFull };
-        }
-        bufToPlay = stretchedFull;
-        // startOffset 对应的是原始时间轴位置，换算到变速后时间轴
-        playStartSec = startOffset / rate;
+        UI.btnSeg.innerText = needsWsola ? '⏳ 处理中...' : '⏳ 准备中...';
+        UI.btnSeg.disabled = true;
+        if (needsWsola) showWsolaProgress();
     }
 
-    sourceNode = ctx.createBufferSource();
-    sourceNode.buffer = bufToPlay;
-    // WSOLA 已经做了时间拉伸，这里不再用 playbackRate 变速（保持 1.0）
-    sourceNode.playbackRate.value = 1.0;
+    try {
+        const ctx = getAudioCtx();
+        await ctx.resume();
+        playMode = mode;
+        const vol = parseFloat(UI.vol.value);
 
-    gainNode = ctx.createGain();
-    gainNode.gain.value = vol;
-    sourceNode.connect(gainNode);
-    gainNode.connect(ctx.destination);
+        let bufToPlay, playStartSec = 0;
 
-    startTime = ctx.currentTime;
-    sourceNode.start(0, playStartSec);
-    isPlaying = true;
-    if (mode === 'segment') UI.btnSeg.innerText = '⏹ 停止预览';
-    requestAnimationFrame(updatePlayHead);
+        if (mode === 'segment') {
+            const seg = getSegmentBuffer(UI.rev.checked);
+            if (!seg) return;
+            bufToPlay = await wsolaStretchBuffer(seg, rate, needsWsola ? updateWsolaProgress : null);
+        } else {
+            if (!needsWsola) {
+                bufToPlay = originalBuffer;
+            } else if (wsolaCache.rate === rate && wsolaCache.buffer) {
+                bufToPlay = wsolaCache.buffer;
+            } else {
+                bufToPlay = await wsolaStretchBuffer(originalBuffer, rate, null); // 全文件播放不显进度（后台静默）
+                wsolaCache = { rate, buffer: bufToPlay };
+            }
+            playStartSec = startOffset / rate;
+        }
 
-    sourceNode.onended = () => {
-        const played = ctx.currentTime - startTime;
-        const durLeft = bufToPlay.duration - playStartSec;
-        if (played >= durLeft - 0.15) stopAudio(true);
-    };
+        hideWsolaProgress();
+
+        sourceNode = ctx.createBufferSource();
+        sourceNode.buffer = bufToPlay;
+        sourceNode.playbackRate.value = 1.0;
+
+        gainNode = ctx.createGain();
+        gainNode.gain.value = vol;
+        sourceNode.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        startTime = ctx.currentTime;
+        sourceNode.start(0, playStartSec);
+        isPlaying = true;
+
+        if (mode === 'segment') UI.btnSeg.innerText = '⏹ 停止预览';
+        requestAnimationFrame(updatePlayHead);
+
+        sourceNode.onended = () => {
+            const played  = ctx.currentTime - startTime;
+            const durLeft = bufToPlay.duration - playStartSec;
+            if (played >= durLeft - 0.15) stopPlayback(true);
+        };
+    } finally {
+        isPlayPending = false;
+        hideWsolaProgress();
+        if (mode === 'segment') UI.btnSeg.disabled = false;
+    }
 }
 
-function stopAudio(reset=false, updateOffset=true) {
-    if (sourceNode) try { sourceNode.stop(); } catch(e) {}
-    if (isPlaying && playMode==='full' && updateOffset && audioCtx) {
-        // 已播时间（对应原始时间轴）= 已播变速后秒数 * rate
-        const rate = parseFloat(UI.rate.value);
+function showWsolaProgress()        { el('wsolaProgressWrap').classList.add('active'); updateWsolaProgress(0); }
+function hideWsolaProgress()        { el('wsolaProgressWrap').classList.remove('active'); }
+function updateWsolaProgress(pct)   { el('wsolaBarFill').style.width = pct+'%'; el('wsolaPct').innerText = pct+'%'; }
+
+function stopPlayback(reset=false, updateOffset=true) {
+    if (sourceNode) { try { sourceNode.stop(); } catch(e) {} sourceNode = null; }
+    if (isPlaying && playMode === 'full' && updateOffset && audioCtx) {
+        const rate    = parseFloat(UI.rate.value);
         const elapsed = (audioCtx.currentTime - startTime) * rate;
-        startOffset += elapsed;
+        startOffset  += elapsed;
         if (startOffset >= originalBuffer.duration || reset) startOffset = 0;
     }
     isPlaying = false;
     UI.btnSeg.innerText = '▶ 预览选中片段';
-    if (playMode==='full') updatePlayHeadUI(startOffset);
+    if (playMode === 'full') updatePlayHeadUI(startOffset);
     else UI.head.style.display = 'none';
     drawStaticWave();
 }
@@ -708,15 +992,17 @@ function updatePlayHead() {
     requestAnimationFrame(updatePlayHead);
     const rate = parseFloat(UI.rate.value);
     if (playMode === 'full') {
-        // 已播秒数（变速后时间轴），换算回原始时间轴
         const elapsed = (audioCtx.currentTime - startTime) * rate;
-        const cur = startOffset + elapsed;
-        UI.time.innerText = formatTimeFull(Math.min(cur, originalBuffer.duration));
+        const cur = Math.min(startOffset + elapsed, originalBuffer.duration);
+        UI.time.innerText = formatTimeFull(cur);
         UI.head.style.display = 'block';
-        UI.head.style.left = (Math.min(cur, originalBuffer.duration) / originalBuffer.duration * 100) + '%';
+        // 换算到当前缩放视图坐标
+        const pct = (cur / originalBuffer.duration - zoomOffset) * zoomLevel;
+        if (pct >= 0 && pct <= 1) { UI.head.style.left = (pct * 100) + '%'; UI.head.style.opacity = '1'; }
+        else UI.head.style.opacity = '0';
     } else {
-        const elapsed = audioCtx.currentTime - startTime; // 变速已被 WSOLA 消化
-        UI.time.innerText = '预览: ' + formatTimeFull(elapsed * rate); // 显示原始等效时间
+        const elapsed = audioCtx.currentTime - startTime;
+        UI.time.innerText = '预览: ' + formatTimeFull(elapsed * rate);
         UI.head.style.display = 'none';
     }
 }
@@ -724,29 +1010,57 @@ function updatePlayHead() {
 function updatePlayHeadUI(time) {
     if (!originalBuffer) return;
     UI.head.style.display = 'block';
-    UI.head.style.left = (time / originalBuffer.duration * 100) + '%';
+    const pct = (time / originalBuffer.duration - zoomOffset) * zoomLevel;
+    UI.head.style.left = (Math.max(0, Math.min(1, pct)) * 100) + '%';
 }
 
-// ---- Waveform ----
+// ---- Waveform draw ----
 function drawStaticWave() {
-    const cvs=UI.cvs, ctx=cvs.getContext('2d');
-    const w=cvs.width=cvs.clientWidth, h=cvs.height=cvs.clientHeight;
+    const cvs = UI.cvs, ctx = cvs.getContext('2d');
+    const w = cvs.width  = cvs.clientWidth;
+    const h = cvs.height = cvs.clientHeight;
     ctx.clearRect(0,0,w,h);
-    ctx.fillStyle='#f0f3f5'; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = '#f0f3f5'; ctx.fillRect(0,0,w,h);
     if (!originalBuffer) return;
-    const data=originalBuffer.getChannelData(0), step=Math.ceil(data.length/w), amp=h/2;
-    const dur=originalBuffer.duration, s=parseFloat(UI.tStart.value), e=parseFloat(UI.tEnd.value);
-    const xS=(s/dur)*w, xE=(e/dur)*w;
-    for (let i=0;i<w;i++) {
-        let mn=1,mx=-1;
-        for (let j=0;j<step;j++){const v=data[i*step+j];if(v<mn)mn=v;if(v>mx)mx=v;}
-        ctx.fillStyle = (i<xS||i>xE) ? '#bdc3c7' : '#3498db';
-        ctx.fillRect(i,(1+mn)*amp,1,Math.max(1,(mx-mn)*amp));
+
+    const data = originalBuffer.getChannelData(0);
+    const totalSamples = data.length;
+    const dur  = originalBuffer.duration;
+    const s    = parseFloat(UI.tStart.value);
+    const e    = parseFloat(UI.tEnd.value);
+
+    // 当前视图对应的原始比例范围
+    const viewStart = zoomOffset;              // 0~1
+    const viewEnd   = zoomOffset + 1/zoomLevel; // 0~1
+
+    // 像素对应的采样范围
+    const sampleStart = Math.floor(viewStart * totalSamples);
+    const sampleEnd   = Math.ceil(viewEnd * totalSamples);
+    const step = Math.max(1, Math.ceil((sampleEnd - sampleStart) / w));
+
+    // 选区在视图中的像素位置
+    const xS = Math.round((s/dur - viewStart) * zoomLevel * w);
+    const xE = Math.round((e/dur - viewStart) * zoomLevel * w);
+
+    for (let i = 0; i < w; i++) {
+        const idx0 = sampleStart + Math.floor(i * (sampleEnd - sampleStart) / w);
+        let mn=1, mx=-1;
+        for (let j=0; j<step; j++) {
+            const v = data[idx0+j];
+            if (v !== undefined) { if(v<mn)mn=v; if(v>mx)mx=v; }
+        }
+        ctx.fillStyle = (i < xS || i > xE) ? '#bdc3c7' : '#3498db';
+        const amp = h/2;
+        ctx.fillRect(i, (1+mn)*amp, 1, Math.max(1,(mx-mn)*amp));
     }
-    ctx.fillStyle='#27ae60'; ctx.fillRect(xS,0,2,h);
-    ctx.fillStyle='#c0392b'; ctx.fillRect(xE,0,2,h);
-    ctx.fillStyle='rgba(0,0,0,0.05)';
-    ctx.fillRect(0,0,xS,h); ctx.fillRect(xE,0,w-xE,h);
+
+    if (xS >= 0 && xS <= w) { ctx.fillStyle = '#27ae60'; ctx.fillRect(xS, 0, 2, h); }
+    if (xE >= 0 && xE <= w) { ctx.fillStyle = '#c0392b'; ctx.fillRect(xE, 0, 2, h); }
+
+    // 灰色蒙版遮住选区外
+    ctx.fillStyle = 'rgba(0,0,0,0.05)';
+    if (xS > 0) ctx.fillRect(0, 0, xS, h);
+    if (xE < w) ctx.fillRect(xE, 0, w-xE, h);
 }
 
 // ---- Segment buffer ----
@@ -768,20 +1082,106 @@ function getSegmentBuffer(isRev) {
 // ---- Time inputs ----
 UI.tStart.addEventListener('change', ()=>{validateTime();drawStaticWave();updateEstimate();nextClickIsStart=false;});
 UI.tEnd.addEventListener('change',   ()=>{validateTime();drawStaticWave();updateEstimate();nextClickIsStart=true;});
-
 function validateTime() {
     let s=parseFloat(UI.tStart.value), e=parseFloat(UI.tEnd.value);
-    if (s<0) s=0; if (e>originalBuffer.duration) e=originalBuffer.duration;
-    if (s>=e) s=e-0.1;
+    if(s<0)s=0; if(e>originalBuffer.duration)e=originalBuffer.duration;
+    if(s>=e)s=Math.max(0,e-0.1);
     UI.tStart.value=fmt(s); UI.tEnd.value=fmt(e);
+}
+function selectAll() { UI.tStart.value='0.00'; UI.tEnd.value=fmt(originalBuffer.duration); drawStaticWave(); updateEstimate(); }
+
+// ---- Normalize ----
+function doNormalize() {
+    if (!originalBuffer) return;
+    // 计算当前响度
+    let peak = 0;
+    for (let ch=0; ch<originalBuffer.numberOfChannels; ch++) {
+        const d = originalBuffer.getChannelData(ch);
+        for (let i=0;i<d.length;i++) { const v=Math.abs(d[i]); if(v>peak)peak=v; }
+    }
+    const dbFS = 20 * Math.log10(Math.max(peak, 1e-6));
+    const target = -1;
+    if (Math.abs(dbFS - target) < 0.5) { alert(`当前响度已接近 ${target} dBFS（实际 ${dbFS.toFixed(1)} dBFS），无需标准化`); return; }
+    const gain = Math.pow(10, (target - dbFS) / 20);
+    for (let ch=0; ch<originalBuffer.numberOfChannels; ch++) {
+        const d = originalBuffer.getChannelData(ch);
+        for (let i=0;i<d.length;i++) d[i] = Math.max(-1, Math.min(1, d[i]*gain));
+    }
+    wsolaCache = { rate:null, buffer:null };
+    drawStaticWave();
+    alert(`已标准化：${dbFS.toFixed(1)} dBFS → ${target} dBFS（增益 ${gain.toFixed(3)}x）`);
+}
+
+// ---- Silence detection ----
+function detectSilence() {
+    if (!originalBuffer) return;
+    const threshDb  = parseFloat(el('silenceThresh').value);
+    const minLenSec = parseFloat(el('silenceMinLen').value);
+    const thresh    = Math.pow(10, threshDb / 20);
+    const sr        = originalBuffer.sampleRate;
+    const data      = originalBuffer.getChannelData(0);
+    const minFrames = Math.floor(minLenSec * sr);
+    const hop       = Math.floor(sr * 0.01); // 10ms hop
+
+    // 找出每 10ms 块的 RMS
+    const dur = originalBuffer.duration;
+    const silenceRanges = [];
+    let silStart = null;
+
+    for (let i=0; i<data.length; i+=hop) {
+        let rms=0;
+        for(let j=0;j<hop && i+j<data.length;j++) rms+=data[i+j]*data[i+j];
+        rms = Math.sqrt(rms/hop);
+        const isSilent = rms < thresh;
+        if (isSilent && silStart===null) silStart=i;
+        if (!isSilent && silStart!==null) {
+            const silLen = i - silStart;
+            if (silLen >= minFrames) silenceRanges.push([silStart/sr, i/sr]);
+            silStart=null;
+        }
+    }
+    if (silStart!==null) {
+        const silLen = data.length - silStart;
+        if (silLen >= minFrames) silenceRanges.push([silStart/sr, dur]);
+    }
+
+    if (!silenceRanges.length) { alert('未检测到静音段，可尝试调低阈值或缩短最短静音时间'); return; }
+
+    // 根据静音范围推导出音频段
+    const segments = [];
+    let prevEnd = 0;
+    for (const [sS, sE] of silenceRanges) {
+        if (sS - prevEnd > 0.1) segments.push([prevEnd, sS]);
+        prevEnd = sE;
+    }
+    if (dur - prevEnd > 0.1) segments.push([prevEnd, dur]);
+
+    const box = el('silenceSegs');
+    box.style.display = 'flex';
+    box.innerHTML = `<span style="font-size:.8em;color:#888;width:100%">检测到 ${segments.length} 个音频段（点击选择）：</span>`;
+    segments.forEach(([s,e], i) => {
+        const chip = document.createElement('span');
+        chip.className = 'seg-chip';
+        chip.title = `${fmt(s)}s → ${fmt(e)}s`;
+        chip.innerText = `#${i+1}  ${formatTimeFull(s).slice(0,5)}~${formatTimeFull(e).slice(0,5)}`;
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('.seg-chip').forEach(c=>c.classList.remove('active'));
+            chip.classList.add('active');
+            UI.tStart.value = fmt(s);
+            UI.tEnd.value   = fmt(e);
+            nextClickIsStart = true;
+            drawStaticWave(); updateEstimate();
+        });
+        box.appendChild(chip);
+    });
 }
 
 // ---- Estimate ----
 function updateEstimate() {
     if (!originalBuffer) return;
-    const dur=Math.max(0,parseFloat(UI.tEnd.value)-parseFloat(UI.tStart.value));
-    const rDur=dur/parseFloat(UI.rate.value);
-    let bytes=0;
+    const dur  = Math.max(0, parseFloat(UI.tEnd.value) - parseFloat(UI.tStart.value));
+    const rDur = dur / parseFloat(UI.rate.value);
+    let bytes  = 0;
     if (UI.fmt.value==='mp3') bytes=(rDur*parseInt(UI.br.value)*1000)/8;
     else {
         const sr=el('exportRate').value==='original'?originalBuffer.sampleRate:parseInt(el('exportRate').value);
@@ -790,73 +1190,66 @@ function updateEstimate() {
     }
     UI.est.innerText=`预估: ${(bytes/1024/1024).toFixed(2)} MB`;
 }
-[UI.fmt, UI.br, el('exportRate'), el('exportChannels')].forEach(i=>{
-    i.addEventListener('change',updateEstimate);
-});
-UI.fmt.addEventListener('change',()=>{
+[UI.fmt, UI.br, el('exportRate'), el('exportChannels')].forEach(i => i.addEventListener('change', updateEstimate));
+UI.fmt.addEventListener('change', ()=>{
     const m=UI.fmt.value==='mp3';
     el('bitrateGroup').style.opacity=m?'1':'0.3';
     UI.br.disabled=!m;
 });
 
-// ---- WSOLA Export（变速不变调导出）----
+// ---- Export (WSOLA + 淡入淡出) ----
 async function renderSegmentToBlob(startSec, endSec) {
     const dur = endSec - startSec;
     if (dur <= 0) throw new Error('时长无效');
-
-    const ctx  = getAudioCtx();
-    const rate = parseFloat(UI.rate.value);
-    const vol  = parseFloat(UI.vol.value);
+    const ctx   = getAudioCtx();
+    const rate  = parseFloat(UI.rate.value);
+    const vol   = parseFloat(UI.vol.value);
     const isRev = UI.rev.checked;
+    const tSR   = el('exportRate').value==='original' ? originalBuffer.sampleRate : parseInt(el('exportRate').value);
+    const tCh   = el('exportChannels').value==='original' ? originalBuffer.numberOfChannels : parseInt(el('exportChannels').value);
 
-    const tSR = el('exportRate').value==='original' ? originalBuffer.sampleRate : parseInt(el('exportRate').value);
-    const tCh = el('exportChannels').value==='original' ? originalBuffer.numberOfChannels : parseInt(el('exportChannels').value);
-
-    // 1. 切取并可选倒放
+    // 1. 切取 + 倒放
     const f  = Math.floor(dur * originalBuffer.sampleRate);
     const sf = Math.floor(startSec * originalBuffer.sampleRate);
     const cutBuf = ctx.createBuffer(originalBuffer.numberOfChannels, f, originalBuffer.sampleRate);
-    for (let i = 0; i < originalBuffer.numberOfChannels; i++) {
-        const o = originalBuffer.getChannelData(i), n = cutBuf.getChannelData(i);
-        for (let j = 0; j < f; j++) n[j] = o[sf + j] || 0;
-        if (isRev) Array.prototype.reverse.call(n);
+    for (let i=0; i<originalBuffer.numberOfChannels; i++) {
+        const o=originalBuffer.getChannelData(i), n=cutBuf.getChannelData(i);
+        for(let j=0;j<f;j++) n[j]=o[sf+j]||0;
+        if(isRev) Array.prototype.reverse.call(n);
     }
 
-    // 2. 如需重采样（先用 OfflineAudioContext 做）
+    // 2. 重采样（如需）
     let workBuf = cutBuf;
     if (tSR !== originalBuffer.sampleRate || tCh !== originalBuffer.numberOfChannels) {
         const offCtx = new OfflineAudioContext(tCh, Math.ceil(cutBuf.duration * tSR), tSR);
-        const src = offCtx.createBufferSource();
-        src.buffer = cutBuf;
-        src.connect(offCtx.destination);
-        src.start(0);
+        const src = offCtx.createBufferSource(); src.buffer=cutBuf;
+        src.connect(offCtx.destination); src.start(0);
         workBuf = await offCtx.startRendering();
     }
 
-    // 3. WSOLA 时间拉伸（变速不变调）
-    let stretchedBuf;
-    if (Math.abs(rate - 1.0) < 0.01) {
-        stretchedBuf = workBuf;
-    } else {
-        setLoaderProg('WSOLA 处理中...');
-        const stretcher = new WSOLAStretcher(workBuf.sampleRate);
-        stretchedBuf = stretcher.stretchBuffer(ctx, workBuf, rate, workBuf.sampleRate, workBuf.numberOfChannels);
-    }
+    // 3. WSOLA 时间拉伸
+    setLoaderProg('WSOLA 处理中... 0%');
+    const stretchedBuf = await wsolaStretchBuffer(workBuf, rate, pct => setLoaderProg(`WSOLA 处理中... ${pct}%`));
 
-    // 4. 音量
-    if (Math.abs(vol - 1.0) > 0.01) {
-        for (let ch = 0; ch < stretchedBuf.numberOfChannels; ch++) {
-            const d = stretchedBuf.getChannelData(ch);
-            for (let i = 0; i < d.length; i++) d[i] = Math.max(-1, Math.min(1, d[i] * vol));
+    // 4. 淡入淡出
+    const fadeInSamples  = UI.fadeIn.checked  ? Math.round(parseInt(UI.fadeInMs.value)  / 1000 * stretchedBuf.sampleRate) : 0;
+    const fadeOutSamples = UI.fadeOut.checked ? Math.round(parseInt(UI.fadeOutMs.value) / 1000 * stretchedBuf.sampleRate) : 0;
+    applyFade(stretchedBuf, fadeInSamples, fadeOutSamples);
+
+    // 5. 音量
+    if (Math.abs(vol-1.0) > 0.01) {
+        for (let ch=0; ch<stretchedBuf.numberOfChannels; ch++) {
+            const d=stretchedBuf.getChannelData(ch);
+            for(let i=0;i<d.length;i++) d[i]=Math.max(-1,Math.min(1,d[i]*vol));
         }
     }
 
-    // 5. 编码
-    if (el('exportFormat').value === 'mp3') return bufferToMp3(stretchedBuf, parseInt(UI.br.value));
+    // 6. 编码
+    setLoaderProg('编码中...');
+    if (el('exportFormat').value==='mp3') return bufferToMp3(stretchedBuf, parseInt(UI.br.value));
     return bufferToWave(stretchedBuf, stretchedBuf.length);
 }
 
-// ---- Download / split ----
 UI.btnDl.addEventListener('click', async ()=>{
     if (!originalBuffer) return;
     showLoader('正在导出...');
@@ -876,20 +1269,21 @@ UI.btnSplit.addEventListener('click', async ()=>{
         for(let i=0;i<n;i++){
             setLoaderProg(`${i+1}/${n}`);
             const blob=await renderSegmentToBlob(i*segDur,(i+1)*segDur);
-            triggerDownload(blob, `${rawFileName}_part${i+1}.${el('exportFormat').value}`);
+            triggerDownload(blob,`${rawFileName}_part${i+1}.${el('exportFormat').value}`);
             await new Promise(r=>setTimeout(r,500));
         }
-    } catch(e) { alert('分段失败: '+e); } finally { hideLoader(); }
+    } catch(e){ alert('分段失败: '+e); } finally { hideLoader(); }
 });
 
 function resetParams() {
     if (!originalBuffer) return;
     UI.rate.value=1; UI.rateVal.innerText='1.00x';
     UI.vol.value=1;  UI.volVal.innerText='100%';
-    UI.rev.checked=false;
+    UI.rev.checked=false; UI.fadeIn.checked=false; UI.fadeOut.checked=false;
     UI.tStart.value='0.00'; UI.tEnd.value=fmt(originalBuffer.duration);
-    wsolaCache = { rate: null, buffer: null };
-    stopAudio(); drawStaticWave(); updateEstimate();
+    zoomLevel=1; zoomOffset=0; UI.zoom.value=1; UI.zoomVal.innerText='1x';
+    wsolaCache={rate:null,buffer:null};
+    stopPlayback(); drawStaticWave(); updateEstimate();
 }
 
 // ==========================================
@@ -899,41 +1293,44 @@ let mergeFiles = [];
 
 el('mergeFileInput').addEventListener('change', async function() {
     if (!this.files.length) return;
+    await addMergeFiles([...this.files]);
+    this.value='';
+});
+
+setupDropZone(el('mergeUploadBox'), files => addMergeFiles(files));
+
+async function addMergeFiles(files) {
     showLoader('正在读取文件信息...');
     const ctx = getAudioCtx();
     try {
-        for (const file of this.files) {
-            const ab = await file.arrayBuffer();
+        for (const file of files) {
+            if (!file.type.startsWith('audio/') && !/\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(file.name)) continue;
+            const ab  = await file.arrayBuffer();
             const buf = await ctx.decodeAudioData(ab);
             mergeFiles.push({
-                file,
-                name: file.name,
+                file, name: file.name,
                 baseName: file.name.replace(/\.[^/.]+$/,''),
-                duration: buf.duration,
-                sampleRate: buf.sampleRate,
-                channels: buf.numberOfChannels,
-                size: file.size
+                duration: buf.duration, sampleRate: buf.sampleRate,
+                channels: buf.numberOfChannels, size: file.size
             });
         }
         mergeFiles.sort((a,b)=>a.name.localeCompare(b.name, undefined, {numeric:true}));
         renderMergeList();
-    } catch(e) { alert('读取失败: '+e.message); } finally { hideLoader(); this.value=''; }
-});
+    } catch(e) { alert('读取失败: '+e.message); }
+    finally { hideLoader(); }
+}
 
 function renderMergeList() {
-    const list = el('mergeFileList');
+    const list    = el('mergeFileList');
     const isEmpty = mergeFiles.length === 0;
-    el('mergeEmpty').style.display = isEmpty ? '' : 'none';
+    el('mergeEmpty').style.display    = isEmpty ? '' : 'none';
     el('mergeSortHint').style.display = isEmpty ? 'none' : '';
-    el('btnMerge').disabled = mergeFiles.length < 2;
-
+    el('btnMerge').disabled           = mergeFiles.length < 2;
     [...list.querySelectorAll('.merge-file-item')].forEach(i=>i.remove());
 
     mergeFiles.forEach((f, idx) => {
         const item = document.createElement('div');
-        item.className = 'merge-file-item';
-        item.draggable = true;
-        item.dataset.idx = idx;
+        item.className = 'merge-file-item'; item.draggable=true; item.dataset.idx=idx;
         item.innerHTML = `
             <span class="merge-file-num">${idx+1}</span>
             <span class="drag-handle">⠿</span>
@@ -941,8 +1338,7 @@ function renderMergeList() {
                 <div class="merge-file-name" title="${f.name}">${f.name}</div>
                 <div class="merge-file-meta">${f.sampleRate}Hz · ${f.channels}ch · ${f.duration.toFixed(1)}s · ${(f.size/1024/1024).toFixed(2)}MB</div>
             </div>
-            <button class="btn-remove" title="移除" onclick="removeMergeFile(${idx})">✕</button>
-        `;
+            <button class="btn-remove" onclick="removeMergeFile(${idx})">✕</button>`;
         item.addEventListener('dragstart', onDragStart);
         item.addEventListener('dragover',  onDragOver);
         item.addEventListener('dragleave', onDragLeave);
@@ -950,117 +1346,103 @@ function renderMergeList() {
         item.addEventListener('dragend',   onDragEnd);
         list.appendChild(item);
     });
-
     updateMergeInfo();
 }
 
 function updateMergeInfo() {
     const total = mergeFiles.reduce((s,f)=>s+f.duration,0);
-    el('mergeInfo').innerText = `${mergeFiles.length} 个文件，共 ${total.toFixed(1)} 秒`;
+    const gap   = parseFloat(el('mergeGap').value||0);
+    const totalWithGap = total + gap * Math.max(0, mergeFiles.length-1);
+    el('mergeInfo').innerText = `${mergeFiles.length} 个文件，共 ${totalWithGap.toFixed(1)} 秒${gap>0?' (含间隔静音)':''}`;
 }
+el('mergeGap').addEventListener('input', updateMergeInfo);
 
-function removeMergeFile(idx) {
-    mergeFiles.splice(idx,1);
-    renderMergeList();
-}
-
-function clearMergeFiles() {
-    mergeFiles = [];
-    renderMergeList();
-}
+function removeMergeFile(idx) { mergeFiles.splice(idx,1); renderMergeList(); }
+function clearMergeFiles()    { mergeFiles=[]; renderMergeList(); }
 
 let dragSrcIdx = null;
-
-function onDragStart(e) {
-    dragSrcIdx = parseInt(this.dataset.idx);
-    this.classList.add('dragging');
-    e.dataTransfer.effectAllowed = 'move';
-}
-function onDragOver(e) {
-    e.preventDefault(); e.dataTransfer.dropEffect='move';
-    this.classList.add('drag-over');
-}
-function onDragLeave() { this.classList.remove('drag-over'); }
-function onDrop(e) {
-    e.preventDefault();
-    this.classList.remove('drag-over');
-    const targetIdx = parseInt(this.dataset.idx);
-    if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
-    const moved = mergeFiles.splice(dragSrcIdx,1)[0];
-    mergeFiles.splice(targetIdx,0,moved);
+function onDragStart(e) { dragSrcIdx=parseInt(this.dataset.idx); this.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; }
+function onDragOver(e)  { e.preventDefault(); e.dataTransfer.dropEffect='move'; this.classList.add('drag-over'); }
+function onDragLeave()  { this.classList.remove('drag-over'); }
+function onDrop(e)      {
+    e.preventDefault(); this.classList.remove('drag-over');
+    const targetIdx=parseInt(this.dataset.idx);
+    if(dragSrcIdx===null||dragSrcIdx===targetIdx)return;
+    const moved=mergeFiles.splice(dragSrcIdx,1)[0]; mergeFiles.splice(targetIdx,0,moved);
     renderMergeList();
 }
 function onDragEnd() {
-    dragSrcIdx = null;
-    document.querySelectorAll('.merge-file-item').forEach(i=>{
-        i.classList.remove('dragging','drag-over');
-    });
+    dragSrcIdx=null;
+    document.querySelectorAll('.merge-file-item').forEach(i=>i.classList.remove('dragging','drag-over'));
 }
 
 async function doMerge() {
     if (mergeFiles.length < 2) return;
-    showLoader('正在合并...', '解码文件 0/' + mergeFiles.length);
-    const ctx = getAudioCtx();
+    const ctx       = getAudioCtx();
     const mergeFmt  = el('mergeFormat').value;
     const mergeBr   = parseInt(el('mergeBitrate').value);
-    const mergeRateV = el('mergeRate').value;
+    const mergeRateV= el('mergeRate').value;
+    const gapSec    = parseFloat(el('mergeGap').value||0);
 
+    showLoader('正在合并...', `解码文件 0/${mergeFiles.length}`);
     try {
-        const buffers = [];
-        for (let i=0; i<mergeFiles.length; i++) {
-            setLoaderProg(`解码文件 ${i+1}/${mergeFiles.length}`);
-            const ab = await mergeFiles[i].file.arrayBuffer();
-            const buf = await ctx.decodeAudioData(ab);
-            buffers.push(buf);
+        // 1. Decode
+        const buffers=[];
+        for(let i=0;i<mergeFiles.length;i++){
+            setLoaderProg(`解码 ${i+1}/${mergeFiles.length}`);
+            const ab=await mergeFiles[i].file.arrayBuffer();
+            buffers.push(await ctx.decodeAudioData(ab));
         }
 
+        // 2. Target params
         const targetSR = mergeRateV==='auto' ? buffers[0].sampleRate : parseInt(mergeRateV);
         const targetCh = Math.max(...buffers.map(b=>b.numberOfChannels));
 
-        setLoaderProg('处理中...');
-        const normBuffers = [];
-        for (let i=0; i<buffers.length; i++) {
+        // 3. Resample/normalize channels
+        const normBuffers=[];
+        for(let i=0;i<buffers.length;i++){
             setLoaderProg(`处理 ${i+1}/${buffers.length}`);
-            const buf = buffers[i];
-            if (buf.sampleRate === targetSR && buf.numberOfChannels === targetCh) {
-                normBuffers.push(buf); continue;
-            }
-            const dur = buf.duration;
-            const offCtx = new OfflineAudioContext(targetCh, Math.ceil(dur*targetSR), targetSR);
-            const src = offCtx.createBufferSource();
-            src.buffer = buf;
-            src.connect(offCtx.destination);
-            src.start(0);
-            normBuffers.push(await offCtx.startRendering());
+            const buf=buffers[i];
+            if(buf.sampleRate===targetSR&&buf.numberOfChannels===targetCh){ normBuffers.push(buf); continue; }
+            const off=new OfflineAudioContext(targetCh,Math.ceil(buf.duration*targetSR),targetSR);
+            const src=off.createBufferSource(); src.buffer=buf; src.connect(off.destination); src.start(0);
+            normBuffers.push(await off.startRendering());
         }
 
+        // 4. 生成间隔静音（如需）
+        const silenceBuf = gapSec > 0 ? makeSilenceBuffer(ctx, gapSec, targetSR, targetCh) : null;
+
+        // 5. Concatenate with gaps
         setLoaderProg('拼接中...');
-        const totalFrames = normBuffers.reduce((s,b)=>s+b.length,0);
-        const merged = ctx.createBuffer(targetCh, totalFrames, targetSR);
-        let offset = 0;
-        for (const buf of normBuffers) {
-            for (let ch=0; ch<targetCh; ch++) {
-                const src = ch < buf.numberOfChannels ? buf.getChannelData(ch) : buf.getChannelData(0);
+        const gapFrames   = silenceBuf ? silenceBuf.length : 0;
+        const totalFrames = normBuffers.reduce((s,b)=>s+b.length,0) + gapFrames * (normBuffers.length-1);
+        const merged      = ctx.createBuffer(targetCh, totalFrames, targetSR);
+        let offset=0;
+        normBuffers.forEach((buf, i) => {
+            for(let ch=0;ch<targetCh;ch++){
+                const src=ch<buf.numberOfChannels?buf.getChannelData(ch):buf.getChannelData(0);
                 merged.getChannelData(ch).set(src, offset);
             }
-            offset += buf.length;
-        }
+            offset+=buf.length;
+            if(silenceBuf && i<normBuffers.length-1) {
+                // 静音段自动为 0，直接推进偏移
+                offset+=gapFrames;
+            }
+        });
 
+        // 6. Encode
         setLoaderProg('编码中...');
-        let blob;
-        if (mergeFmt === 'mp3') blob = bufferToMp3(merged, mergeBr);
-        else blob = bufferToWave(merged, merged.length);
+        const blob = mergeFmt==='mp3' ? bufferToMp3(merged,mergeBr) : bufferToWave(merged,merged.length);
+        triggerDownload(blob, `${mergeFiles[0].baseName}_merged.${mergeFmt}`);
 
-        const outName = `${mergeFiles[0].baseName}_merged.${mergeFmt}`;
-        triggerDownload(blob, outName);
-
-    } catch(e) { alert('合并失败: '+e.message); } finally { hideLoader(); }
+    } catch(e){ alert('合并失败: '+e.message); }
+    finally { hideLoader(); }
 }
 
 el('mergeFormat').addEventListener('change', ()=>{
-    const m = el('mergeFormat').value === 'mp3';
-    el('mergeBitrateGroup').style.opacity = m?'1':'0.3';
-    el('mergeBitrate').disabled = !m;
+    const m=el('mergeFormat').value==='mp3';
+    el('mergeBitrateGroup').style.opacity=m?'1':'0.3';
+    el('mergeBitrate').disabled=!m;
 });
 </script>
 </body>
