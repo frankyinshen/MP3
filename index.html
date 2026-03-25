@@ -238,11 +238,11 @@
         </div>
 
         <!-- 未上传时的占位提示（拖拽目标） -->
-        <label id="dropHint" class="drop-hint" for="fileInput" style="cursor:pointer;display:flex;">
+        <div id="dropHint" class="drop-hint">
             <span class="drop-hint-icon">👆</span>
             <span>点击「上传音频」或直接将文件拖拽到此处</span>
             <span style="font-size:.8em;color:#aaa">MP3 · M4A · WAV · AAC · FLAC</span>
-        </label>
+        </div>
 
         <div id="workspace" style="display:flex;flex-direction:column;gap:12px;">
             <div class="info-bar">
@@ -401,13 +401,13 @@
                 <span style="font-size:.8em;color:#999">拖拽排序 · 支持所有音频格式</span>
             </div>
 
-        <label class="upload-box merge-box" id="mergeUploadBox" for="mergeFileInput" style="cursor:pointer;">
+        <div class="upload-box merge-box" id="mergeUploadBox" style="cursor:pointer;">
             <div class="upload-icon">📂</div>
             <div class="upload-text">
                 <h3>点击或拖拽多个音频文件到此处</h3>
                 <p>MP3, WAV, M4A, AAC, FLAC, OGG 均可 · 可多次添加</p>
             </div>
-        </label>
+        </div>
 
         <div id="mergeFileList" class="merge-file-list">
             <div class="merge-empty" id="mergeEmpty">还没有文件 — 点击上方添加</div>
@@ -725,7 +725,6 @@ let rawFileName = "audio";
 // 波形缩放 & 平移
 let zoomLevel = 1;   // 1 = 全局视图
 let zoomOffset = 0;  // 0~1，当前视图起始位置（比例）
-let isDragging = false, dragStartX = 0, dragStartOffset = 0;
 
 // WSOLA 缓存
 let wsolaCache = { rate: null, buffer: null };
@@ -832,7 +831,7 @@ UI.zoom.addEventListener('input', function() {
 let isMouseDown   = false;
 let dragStartX    = 0;          // mousedown 时的 clientX
 let dragStartT    = 0;          // mousedown 时对应的音频时间
-let dragOffset    = zoomOffset; // 平移专用：mousedown 时的 zoomOffset
+let dragOffset    = 0;          // 平移专用：mousedown 时的 zoomOffset 快照
 let dragMode      = 'none';     // 'none' | 'select' | 'pan'
 let liveSelectStart = null;     // 拖拽选区的起始时间（null=未激活）
 let liveSelectEnd   = null;
@@ -1400,9 +1399,8 @@ el('mergeFileInput').addEventListener('change', async function() {
     this.value='';
 });
 
-// 点击上传框 → 触发隐藏 input（JS 绑定，比 onclick 属性更可靠）
+// 点击上传框 → 触发隐藏 input
 el('mergeUploadBox').addEventListener('click', () => el('mergeFileInput').click());
-setupDropZone(el('mergeUploadBox'), files => addMergeFiles(files));
 
 async function addMergeFiles(files) {
     showLoader('正在读取并解码文件...');
