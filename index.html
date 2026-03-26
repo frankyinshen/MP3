@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web音频工坊 V16</title>
+    <title>Web音频工坊 V15</title>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
         :root {
@@ -220,12 +220,19 @@
         <div class="spinner"></div>
         <div style="margin-top:10px;color:#555;font-size:.9em" id="loaderText">处理中...</div>
         <div class="loader-progress" id="loaderProgress"></div>
+        <!-- 合并进度条 -->
+        <div id="loaderBarWrap" style="display:none;width:260px;margin-top:10px;">
+            <div style="height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;">
+                <div id="loaderBarFill" style="height:100%;width:0%;background:linear-gradient(90deg,#8e44ad,#a569bd);border-radius:4px;transition:width .25s ease;"></div>
+            </div>
+            <div id="loaderBarPct" style="text-align:right;font-size:.78em;color:#8e44ad;margin-top:3px;font-weight:700;">0%</div>
+        </div>
     </div>
 
     <!-- ===== SINGLE FILE EDITOR ===== -->
     <div class="card">
         <div class="header">
-            <h1>🎧 Web 音频工坊 V16</h1>
+            <h1>🎧 Web 音频工坊 V15</h1>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
                 <!-- 上传入口：紧凑按钮，不再是大框 -->
                 <label class="btn-sm btn-upload" for="fileInput" style="cursor:pointer;">
@@ -238,7 +245,7 @@
         </div>
 
         <!-- 未上传时的占位提示（拖拽目标） -->
-        <div id="dropHint" class="drop-hint">
+        <div id="dropHint" class="drop-hint" style="cursor:pointer;" onclick="el('fileInput').click()">
             <span class="drop-hint-icon">👆</span>
             <span>点击「上传音频」或直接将文件拖拽到此处</span>
             <span style="font-size:.8em;color:#aaa">MP3 · M4A · WAV · AAC · FLAC</span>
@@ -1494,6 +1501,17 @@ function onDragEnd() {
     document.querySelectorAll('.merge-file-item').forEach(i=>i.classList.remove('dragging','drag-over'));
 }
 
+function showMergeProgress(pct, label) {
+    el('loaderBarWrap').style.display = 'block';
+    el('loaderBarFill').style.width   = pct + '%';
+    el('loaderBarPct').innerText       = pct + '%';
+    if (label) el('loaderProgress').innerText = label;
+}
+function hideMergeProgress() {
+    el('loaderBarWrap').style.display = 'none';
+    el('loaderBarFill').style.width   = '0%';
+}
+
 async function doMerge() {
     if (mergeFiles.length < 2) return;
     const ctx       = getAudioCtx();
@@ -1501,8 +1519,10 @@ async function doMerge() {
     const mergeBr   = parseInt(el('mergeBitrate').value);
     const mergeRateV= el('mergeRate').value;
     const gapSec    = parseFloat(el('mergeGap').value||0);
+    const n         = mergeFiles.length;
 
-    showLoader('正在合并...', `准备数据 0/${mergeFiles.length}`);
+    showLoader('正在合并...', '');
+    showMergeProgress(0, `准备数据 0/${n}`);
     try {
         // 1. 直接使用添加时已缓存的 decodedBuffer，无需再次读取文件和解码
         const buffers = mergeFiles.map(f => f.decodedBuffer);
@@ -1511,10 +1531,11 @@ async function doMerge() {
         const targetSR = mergeRateV==='auto' ? buffers[0].sampleRate : parseInt(mergeRateV);
         const targetCh = Math.max(...buffers.map(b=>b.numberOfChannels));
 
-        // 3. Resample/normalize channels
+        // 3. Resample/normalize channels  (占进度 0~70%)
         const normBuffers=[];
         for(let i=0;i<buffers.length;i++){
-            setLoaderProg(`处理 ${i+1}/${buffers.length}`);
+            const pct = Math.round((i / n) * 70);
+            showMergeProgress(pct, `重采样 ${i+1}/${n}：${mergeFiles[i].name}`);
             const buf=buffers[i];
             if(buf.sampleRate===targetSR&&buf.numberOfChannels===targetCh){ normBuffers.push(buf); continue; }
             const off=new OfflineAudioContext(targetCh,Math.ceil(buf.duration*targetSR),targetSR);
@@ -1525,8 +1546,8 @@ async function doMerge() {
         // 4. 生成间隔静音（如需）
         const silenceBuf = gapSec > 0 ? makeSilenceBuffer(ctx, gapSec, targetSR, targetCh) : null;
 
-        // 5. Concatenate with gaps
-        setLoaderProg('拼接中...');
+        // 5. Concatenate with gaps  (占进度 70~85%)
+        showMergeProgress(72, '拼接音频片段...');
         const gapFrames   = silenceBuf ? silenceBuf.length : 0;
         const totalFrames = normBuffers.reduce((s,b)=>s+b.length,0) + gapFrames * (normBuffers.length-1);
         const merged      = ctx.createBuffer(targetCh, totalFrames, targetSR);
@@ -1538,18 +1559,21 @@ async function doMerge() {
             }
             offset+=buf.length;
             if(silenceBuf && i<normBuffers.length-1) {
-                // 静音段自动为 0，直接推进偏移
                 offset+=gapFrames;
             }
+            const pct = 72 + Math.round(((i+1) / normBuffers.length) * 13);
+            showMergeProgress(pct, `拼接 ${i+1}/${normBuffers.length}`);
         });
 
-        // 6. Encode
-        setLoaderProg('编码中...');
+        // 6. Encode  (占进度 85~100%)
+        showMergeProgress(86, `编码为 ${mergeFmt.toUpperCase()}...`);
         const blob = mergeFmt==='mp3' ? bufferToMp3(merged,mergeBr) : bufferToWave(merged,merged.length);
+        showMergeProgress(100, '完成！准备下载...');
+        await new Promise(r => setTimeout(r, 300)); // 让用户看到 100%
         triggerDownload(blob, `${mergeFiles[0].baseName}_merged.${mergeFmt}`);
 
     } catch(e){ alert('合并失败: '+e.message); }
-    finally { hideLoader(); }
+    finally { hideMergeProgress(); hideLoader(); }
 }
 
 el('mergeFormat').addEventListener('change', ()=>{
