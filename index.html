@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web音频工坊 V15</title>
+    <title>Web音频工坊 V16</title>
     <script src="https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js"></script>
     <style>
         :root {
@@ -54,12 +54,22 @@
         .zoom-bar input[type=range] { flex: 1; height: 4px; }
         .vis-container { position: relative; width: 100%; height: 120px; background: #f0f3f5;
                          border: 1px solid #bdc3c7; border-radius: 4px; overflow: hidden;
-                         cursor: pointer; user-select: none; }
+                         cursor: pointer; user-select: none; transition: border-color .2s, background .2s; }
         .vis-container:hover { border-color: var(--primary); }
+        /* Drag-over state for the waveform drop zone */
+        .vis-container.dragover { border: 2px dashed var(--primary); background: #ebf5fb; cursor: copy; }
         canvas { width: 100%; height: 100%; display: block; }
         .play-head { position: absolute; top: 0; left: 0; width: 2px; height: 100%;
                      background: var(--accent); pointer-events: none; display: none; z-index: 10;
                      box-shadow: 0 0 5px rgba(231,76,60,.8); }
+
+        /* Drop overlay shown on dragover when file already loaded */
+        .wave-drop-overlay { position: absolute; inset: 0; display: none; flex-direction: column;
+            align-items: center; justify-content: center; gap: 4px; z-index: 20;
+            background: rgba(235,245,251,0.92); pointer-events: none; border-radius: 4px; }
+        .wave-drop-overlay.active { display: flex; }
+        .wave-drop-overlay span:first-child { font-size: 1.6rem; }
+        .wave-drop-overlay span:last-child  { font-size: .85em; color: var(--primary); font-weight: 600; }
 
         /* ===== TIPS ===== */
         .tips { font-size: .8em; color: #7f8c8d; text-align: center; background: #fafafa;
@@ -232,9 +242,8 @@
     <!-- ===== SINGLE FILE EDITOR ===== -->
     <div class="card">
         <div class="header">
-            <h1>🎧 Web 音频工坊 V15</h1>
+            <h1>🎧 Web 音频工坊 V16</h1>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-                <!-- 上传入口：紧凑按钮，不再是大框 -->
                 <label class="btn-sm btn-upload" for="fileInput" style="cursor:pointer;">
                     📂 上传音频
                 </label>
@@ -265,7 +274,8 @@
                 🖱️🖱️ <b>双击</b>：精确设置<span style="color:var(--start)">起</span>/<span style="color:var(--end)">终</span>点 &nbsp;|&nbsp;
                 <b>Alt</b>+拖动：平移波形 &nbsp;|&nbsp;
                 <span class="kbd">Space</span> 播/停 &nbsp;
-                <span class="kbd">←</span><span class="kbd">→</span> 微调起终点
+                <span class="kbd">←</span><span class="kbd">→</span> 微调起终点 &nbsp;|&nbsp;
+                📂 <b>拖入新文件</b>可替换
             </div>
 
             <!-- 波形 + 缩放 -->
@@ -273,12 +283,17 @@
                 <div class="vis-container" id="waveformBox">
                     <canvas id="visualizer"></canvas>
                     <div id="playHead" class="play-head"></div>
+                    <!-- Drop overlay shown when dragging a file over the waveform -->
+                    <div class="wave-drop-overlay" id="waveDropOverlay">
+                        <span>📂</span>
+                        <span>松开以替换当前音频</span>
+                    </div>
                 </div>
                 <div class="zoom-bar">
                     <span>🔍 缩放</span>
                     <input type="range" id="zoomInput" min="1" max="20" step="0.5" value="1">
                     <span id="zoomVal">1x</span>
-                    <span style="margin-left:auto;font-size:.75em;color:#aaa">拖动波形可平移</span>
+                    <span style="margin-left:auto;font-size:.75em;color:#aaa">拖动波形可平移 · 拖入文件可替换</span>
                 </div>
             </div>
 
@@ -464,7 +479,6 @@
 
 </div><!-- /container -->
 
-<!-- 文件 input 放在 body 顶层，避免任何 DOM 层级问题 -->
 <input type="file" id="mergeFileInput" accept="audio/*,.m4a,.mp3,.wav,.aac,.flac,.ogg" multiple style="display:none">
 
 <script>
@@ -475,50 +489,35 @@ window.addEventListener('dragover', e => e.preventDefault());
 window.addEventListener('drop',     e => e.preventDefault());
 
 // ==========================================
-//  WSOLA — Web Worker 实现（真后台线程，主线程完全不卡）
-//  算法：Waveform Similarity Overlap-Add
+//  WSOLA Worker
 // ==========================================
-
-// Worker 源码嵌入为字符串，通过 Blob URL 创建，无需外部文件
 const WSOLA_WORKER_SRC = `
 function wsolaStretch(input, rate, sr, id, chIdx, numCh) {
     if (Math.abs(rate - 1.0) < 0.005) return input.slice();
-
-    // ── 自适应参数（速率越极端窗口越大，参考 SoundTouch 默认值）──
     const dev         = Math.abs(rate - 1.0);
-    const windowMs    = 30 + dev * 20;              // 1.0x→30ms, 1.5x→40ms, 2.0x→50ms
-    const overlapMs   = windowMs * 0.58;             // 58% 重叠（SoundTouch 推荐）
+    const windowMs    = 30 + dev * 20;
+    const overlapMs   = windowMs * 0.58;
     const hopSynthMs  = windowMs - overlapMs;
-    const seekMs      = hopSynthMs * rate * 1.6;     // 保证搜索 ≥ 1.5 hop，充分寻优
-
+    const seekMs      = hopSynthMs * rate * 1.6;
     const windowSize  = Math.round(sr * windowMs   / 1000);
     const overlapSize = Math.round(sr * overlapMs  / 1000);
     const seekSize    = Math.round(sr * seekMs     / 1000);
     const hopSynth    = windowSize - overlapSize;
     const hopAnalysis = Math.round(hopSynth * rate);
-
-    // 极短音频（短于 1.5 个窗口）直接返回原始数据，避免空输出
     if (input.length <= windowSize * 1.5) return input.slice();
-
-    // ── 汉宁窗 ──
     const hann = new Float32Array(windowSize);
     for (let i = 0; i < windowSize; i++)
         hann[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (windowSize - 1)));
-
     const outputLen = Math.ceil(input.length / rate) + windowSize * 2;
     const output  = new Float32Array(outputLen);
     const normBuf = new Float32Array(outputLen);
-
     const totalFrames = Math.ceil((input.length - windowSize) / hopAnalysis);
     const reportEvery = Math.max(1, Math.floor(totalFrames / 50));
     let frameIdx = 0, aPos = 0, sPos = 0;
-
     while (aPos + windowSize <= input.length) {
-        // ── 相似性搜索：在 ±seekSize 范围内找与上一帧末尾最相似的起点 ──
         let bestOff = 0, bestCorr = -Infinity;
         if (sPos >= overlapSize) {
-            // 只比对重叠区（overlapSize 个样本），不比整个窗口，速度更快
-            const prevEnd = sPos;           // 上一帧合成结尾在 output 中的位置
+            const prevEnd = sPos;
             const s0 = Math.max(0,                        aPos - seekSize);
             const s1 = Math.min(input.length - windowSize, aPos + seekSize);
             for (let tp = s0; tp <= s1; tp++) {
@@ -532,8 +531,6 @@ function wsolaStretch(input, rate, sr, id, chIdx, numCh) {
                 if (score > bestCorr) { bestCorr = score; bestOff = tp - aPos; }
             }
         }
-
-        // ── 加窗叠加（OLA）──
         const rPos = aPos + bestOff;
         for (let i = 0; i < windowSize; i++) {
             const si = sPos + i;
@@ -541,23 +538,18 @@ function wsolaStretch(input, rate, sr, id, chIdx, numCh) {
             output[si]  += input[rPos + i] * hann[i];
             normBuf[si] += hann[i];
         }
-
         aPos += hopAnalysis;
         sPos += hopSynth;
         frameIdx++;
-
         if (frameIdx % reportEvery === 0) {
             const overall = (chIdx + frameIdx / totalFrames) / numCh;
             self.postMessage({ type: 'progress', id, pct: Math.min(99, Math.round(overall * 100)) });
         }
     }
-
-    // ── 归一化 ──
     const finalLen = Math.min(sPos + windowSize, outputLen);
     const result   = new Float32Array(finalLen);
     for (let i = 0; i < finalLen; i++)
         result[i] = normBuf[i] > 1e-6 ? output[i] / normBuf[i] : 0;
-
     return result.slice(0, Math.min(Math.round(input.length / rate), result.length));
 }
 self.onmessage = function(e) {
@@ -567,17 +559,16 @@ self.onmessage = function(e) {
 };
 `;
 
-// Worker 单例 + 回调表（分 progress / done 两种）
 let _worker = null;
-const _doneCbs     = new Map(); // id -> resolve fn
-const _progressCbs = new Map(); // id -> progress fn
+const _doneCbs     = new Map();
+const _progressCbs = new Map();
 let _idCnt = 0;
 
 function getWsolaWorker() {
     if (_worker) return _worker;
     const url = URL.createObjectURL(new Blob([WSOLA_WORKER_SRC], { type: 'application/javascript' }));
     _worker = new Worker(url);
-    URL.revokeObjectURL(url); // Worker 已持有内部引用，立即释放 Blob URL 内存安全
+    URL.revokeObjectURL(url);
     _worker.onmessage = e => {
         const { type, id, pct, stretched } = e.data;
         if (type === 'progress') {
@@ -594,12 +585,6 @@ function getWsolaWorker() {
     return _worker;
 }
 
-/**
- * 对 AudioBuffer 做 WSOLA 变速（Worker 后台运行，主线程零阻塞）
- * @param {AudioBuffer} srcBuffer
- * @param {number} rate
- * @param {function} [onProgress]  可选，接收 0-99 的整数百分比
- */
 function wsolaStretchBuffer(srcBuffer, rate, onProgress) {
     if (Math.abs(rate - 1.0) < 0.005) return Promise.resolve(srcBuffer);
     const numCh = srcBuffer.numberOfChannels;
@@ -620,7 +605,6 @@ function wsolaStretchBuffer(srcBuffer, rate, onProgress) {
         getWsolaWorker().postMessage({ id, channels, rate, sr }, transfers);
     });
 }
-
 
 // ==========================================
 //  SHARED STATE
@@ -682,8 +666,6 @@ function bufferToWave(b, len) {
 // ==========================================
 //  AUDIO PROCESSING UTILS
 // ==========================================
-
-/** 淡入淡出：直接修改 buffer 数据 */
 function applyFade(buffer, fadeInSamples, fadeOutSamples) {
     if (fadeInSamples <= 0 && fadeOutSamples <= 0) return;
     const len = buffer.length;
@@ -697,22 +679,20 @@ function applyFade(buffer, fadeInSamples, fadeOutSamples) {
     }
 }
 
-/** 音量标准化：找峰值，缩放到 -1dBFS */
 function normalizeBuffer(buffer) {
     let peak = 0;
     for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
         const d = buffer.getChannelData(ch);
         for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; }
     }
-    if (peak < 0.001 || peak >= 0.891) return; // 已经够响或太静
-    const gain = 0.891 / peak; // ~-1 dBFS
+    if (peak < 0.001 || peak >= 0.891) return;
+    const gain = 0.891 / peak;
     for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
         const d = buffer.getChannelData(ch);
         for (let i = 0; i < d.length; i++) d[i] = Math.max(-1, Math.min(1, d[i] * gain));
     }
 }
 
-/** 生成静音 buffer（用于合并间隔） */
 function makeSilenceBuffer(ctx, durationSec, sampleRate, channels) {
     if (durationSec <= 0) return null;
     const frames = Math.round(durationSec * sampleRate);
@@ -725,15 +705,13 @@ function makeSilenceBuffer(ctx, durationSec, sampleRate, channels) {
 let originalBuffer = null;
 let sourceNode = null, gainNode = null;
 let isPlaying = false, startTime = 0, startOffset = 0, playMode = 'full';
-let isPlayPending = false; // 防止 WSOLA 计算期间重复触发
+let isPlayPending = false;
 let nextClickIsStart = true;
 let rawFileName = "audio";
 
-// 波形缩放 & 平移
-let zoomLevel = 1;   // 1 = 全局视图
-let zoomOffset = 0;  // 0~1，当前视图起始位置（比例）
+let zoomLevel = 1;
+let zoomOffset = 0;
 
-// WSOLA 缓存
 let wsolaCache = { rate: null, buffer: null };
 
 const UI = {
@@ -791,8 +769,8 @@ async function loadAudioFile(file) {
         zoomLevel = 1; zoomOffset = 0;
         UI.zoom.value = 1; UI.zoomVal.innerText = '1x';
         stopPlayback();
-        el('dropHint').style.display = 'none';   // 隐藏占位提示
-        UI.workspace.style.display = 'flex';      // 确保 workspace 可见
+        el('dropHint').style.display = 'none';
+        UI.workspace.style.display = 'flex';
         el('btnNormalize').style.display = '';
         drawStaticWave();
         updateEstimate();
@@ -805,7 +783,7 @@ async function loadAudioFile(file) {
     finally { hideLoader(); }
 }
 
-// ---- Drag & drop upload (single file) ----
+// ---- Drag & drop for initial drop hint ----
 setupDropZone(el('dropHint'), files => { if(files.length) loadAudioFile(files[0]); });
 setupDropZone(el('mergeUploadBox'), files => addMergeFiles(files));
 
@@ -819,28 +797,63 @@ function setupDropZone(box, onFiles) {
     });
 }
 
+// ==========================================
+//  Waveform drop zone — works AFTER a file is loaded
+//  Shows overlay, then replaces audio on drop
+// ==========================================
+let waveDropActive = false; // guard to prevent dragover/dragleave flicker from child elements
+
+UI.cvsBox.addEventListener('dragenter', e => {
+    // Only handle file drags (not waveform selection mouse events)
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    waveDropActive = true;
+    UI.cvsBox.classList.add('dragover');
+    el('waveDropOverlay').classList.add('active');
+});
+
+UI.cvsBox.addEventListener('dragover', e => {
+    if (!e.dataTransfer || !e.dataTransfer.types.includes('Files')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+});
+
+UI.cvsBox.addEventListener('dragleave', e => {
+    // Only hide when truly leaving the container (not entering a child)
+    if (!UI.cvsBox.contains(e.relatedTarget)) {
+        waveDropActive = false;
+        UI.cvsBox.classList.remove('dragover');
+        el('waveDropOverlay').classList.remove('active');
+    }
+});
+
+UI.cvsBox.addEventListener('drop', e => {
+    e.preventDefault();
+    waveDropActive = false;
+    UI.cvsBox.classList.remove('dragover');
+    el('waveDropOverlay').classList.remove('active');
+    if (!e.dataTransfer) return;
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('audio/') || /\.(mp3|wav|m4a|aac|flac|ogg)$/i.test(f.name));
+    if (files.length) loadAudioFile(files[0]);
+});
+
 // ---- Zoom & pan ----
 UI.zoom.addEventListener('input', function() {
     zoomLevel = parseFloat(this.value);
     UI.zoomVal.innerText = zoomLevel.toFixed(1)+'x';
-    // clamp offset
     zoomOffset = Math.min(zoomOffset, 1 - 1/zoomLevel);
     drawStaticWave();
 });
 
 // ==========================================
 //  波形鼠标交互
-//  左键拖动        → 框选选区（拖动距离 > 10px 才触发）
-//  Alt+左键拖动    → 平移波形（缩放时）
-//  左键单击        → 从该位置播放
-//  左键双击        → 精确设置起/终点
 // ==========================================
 let isMouseDown   = false;
-let dragStartX    = 0;          // mousedown 时的 clientX
-let dragStartT    = 0;          // mousedown 时对应的音频时间
-let dragOffset    = 0;          // 平移专用：mousedown 时的 zoomOffset 快照
-let dragMode      = 'none';     // 'none' | 'select' | 'pan'
-let liveSelectStart = null;     // 拖拽选区的起始时间（null=未激活）
+let dragStartX    = 0;
+let dragStartT    = 0;
+let dragOffset    = 0;
+let dragMode      = 'none';
+let liveSelectStart = null;
 let liveSelectEnd   = null;
 
 UI.cvsBox.addEventListener('mousedown', e => {
@@ -851,8 +864,6 @@ UI.cvsBox.addEventListener('mousedown', e => {
     dragOffset    = zoomOffset;
     liveSelectStart = null;
     liveSelectEnd   = null;
-
-    // 记录按下位置对应的时间
     const pct  = getClickPct(e);
     dragStartT = (zoomOffset + pct / zoomLevel) * originalBuffer.duration;
 });
@@ -861,27 +872,21 @@ window.addEventListener('mousemove', e => {
     if (!isMouseDown || !originalBuffer) return;
     const dx = e.clientX - dragStartX;
     const w  = UI.cvsBox.getBoundingClientRect().width;
-
-    if (Math.abs(dx) < 10 && dragMode === 'none') return; // 距离不够，还不决定模式
-
+    if (Math.abs(dx) < 10 && dragMode === 'none') return;
     if (dragMode === 'none') {
-        // 决定模式：Alt+拖动 = 平移，普通拖动 = 框选
         dragMode = e.altKey ? 'pan' : 'select';
         if (dragMode === 'select') UI.cvsBox.style.cursor = 'col-resize';
         if (dragMode === 'pan')    UI.cvsBox.style.cursor = 'grabbing';
     }
-
     if (dragMode === 'pan') {
         const dPct = dx / w / zoomLevel;
         zoomOffset = Math.max(0, Math.min(1 - 1/zoomLevel, dragOffset - dPct));
         drawStaticWave();
-
     } else if (dragMode === 'select') {
         const curPct = getClickPct(e);
         const curT   = (zoomOffset + curPct / zoomLevel) * originalBuffer.duration;
         liveSelectStart = Math.max(0, Math.min(dragStartT, curT));
         liveSelectEnd   = Math.min(originalBuffer.duration, Math.max(dragStartT, curT));
-        // 实时写入起终点输入框
         UI.tStart.value = fmt(liveSelectStart);
         UI.tEnd.value   = fmt(liveSelectEnd);
         drawStaticWave();
@@ -892,9 +897,7 @@ window.addEventListener('mouseup', e => {
     if (!isMouseDown) return;
     isMouseDown = false;
     UI.cvsBox.style.cursor = '';
-
     if (dragMode === 'select' && liveSelectStart !== null) {
-        // 确认选区
         validateTime();
         updateEstimate();
         nextClickIsStart = true;
@@ -905,11 +908,10 @@ window.addEventListener('mouseup', e => {
     dragMode = 'none';
 });
 
-// ---- Wave click（单击 = 播放，仅在没有拖动时触发）----
 UI.cvsBox.addEventListener('click', e => {
     if (!originalBuffer || dragMode !== 'none') return;
     const dx = Math.abs(e.clientX - dragStartX);
-    if (dx >= 10) return; // 超过阈值的视为拖动，不触发播放
+    if (dx >= 10) return;
     const pct      = getClickPct(e);
     const viewPct  = zoomOffset + pct / zoomLevel;
     startOffset    = viewPct * originalBuffer.duration;
@@ -921,7 +923,7 @@ UI.cvsBox.addEventListener('click', e => {
 UI.cvsBox.addEventListener('dblclick', e => {
     e.stopPropagation();
     if (!originalBuffer) return;
-    stopPlayback(); // 打断双击前置 click 触发的意外播放
+    stopPlayback();
     const pct     = getClickPct(e);
     const viewPct = zoomOffset + pct / zoomLevel;
     const t       = viewPct * originalBuffer.duration;
@@ -936,12 +938,12 @@ UI.cvsBox.addEventListener('dblclick', e => {
     }
     drawStaticWave(); updateEstimate();
 });
+
 UI.rate.addEventListener('input', function() {
     const val = parseFloat(this.value);
     UI.rateVal.innerText = val.toFixed(2)+'x';
     wsolaCache = { rate: null, buffer: null };
     updateEstimate();
-    // 如果正在播放，重新播放
     if (isPlaying && !isPlayPending) {
         const curMode = playMode;
         stopPlayback();
@@ -964,7 +966,6 @@ document.addEventListener('keydown', e => {
     if (!originalBuffer) return;
     const tag = document.activeElement.tagName.toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
-
     if (e.code === 'Space') {
         e.preventDefault();
         if (isPlaying) stopPlayback();
@@ -974,9 +975,7 @@ document.addEventListener('keydown', e => {
         e.preventDefault();
         const step = e.shiftKey ? 1.0 : 0.1;
         const dir = e.code === 'ArrowLeft' ? -step : step;
-        // 移动当前焦点：起点或终点
         if (nextClickIsStart === false) {
-            // 下次设的是终点，所以调整终点
             UI.tEnd.value = fmt(Math.max(parseFloat(UI.tStart.value)+0.1, Math.min(originalBuffer.duration, parseFloat(UI.tEnd.value)+dir)));
         } else {
             UI.tStart.value = fmt(Math.max(0, Math.min(parseFloat(UI.tEnd.value)-0.1, parseFloat(UI.tStart.value)+dir)));
@@ -996,25 +995,19 @@ UI.btnStop.addEventListener('click', () => stopPlayback());
 async function startPlayback(mode) {
     if (!originalBuffer || isPlayPending) return;
     isPlayPending = true;
-
     const rate = parseFloat(UI.rate.value);
     const needsWsola = Math.abs(rate - 1.0) >= 0.005;
-
-    // 立即反馈
     if (mode === 'segment') {
         UI.btnSeg.innerText = needsWsola ? '⏳ 处理中...' : '⏳ 准备中...';
         UI.btnSeg.disabled = true;
         if (needsWsola) showWsolaProgress();
     }
-
     try {
         const ctx = getAudioCtx();
         await ctx.resume();
         playMode = mode;
         const vol = parseFloat(UI.vol.value);
-
         let bufToPlay, playStartSec = 0;
-
         if (mode === 'segment') {
             const seg = getSegmentBuffer(UI.rev.checked);
             if (!seg) return;
@@ -1025,30 +1018,24 @@ async function startPlayback(mode) {
             } else if (wsolaCache.rate === rate && wsolaCache.buffer) {
                 bufToPlay = wsolaCache.buffer;
             } else {
-                bufToPlay = await wsolaStretchBuffer(originalBuffer, rate, null); // 全文件播放不显进度（后台静默）
+                bufToPlay = await wsolaStretchBuffer(originalBuffer, rate, null);
                 wsolaCache = { rate, buffer: bufToPlay };
             }
             playStartSec = startOffset / rate;
         }
-
         hideWsolaProgress();
-
         sourceNode = ctx.createBufferSource();
         sourceNode.buffer = bufToPlay;
         sourceNode.playbackRate.value = 1.0;
-
         gainNode = ctx.createGain();
         gainNode.gain.value = vol;
         sourceNode.connect(gainNode);
         gainNode.connect(ctx.destination);
-
         startTime = ctx.currentTime;
         sourceNode.start(0, playStartSec);
         isPlaying = true;
-
         if (mode === 'segment') UI.btnSeg.innerText = '⏹ 停止预览';
         requestAnimationFrame(updatePlayHead);
-
         sourceNode.onended = () => {
             const played  = ctx.currentTime - startTime;
             const durLeft = bufToPlay.duration - playStartSec;
@@ -1089,7 +1076,6 @@ function updatePlayHead() {
         const cur = Math.min(startOffset + elapsed, originalBuffer.duration);
         UI.time.innerText = formatTimeFull(cur);
         UI.head.style.display = 'block';
-        // 换算到当前缩放视图坐标
         const pct = (cur / originalBuffer.duration - zoomOffset) * zoomLevel;
         if (pct >= 0 && pct <= 1) { UI.head.style.left = (pct * 100) + '%'; UI.head.style.opacity = '1'; }
         else UI.head.style.opacity = '0';
@@ -1115,25 +1101,19 @@ function drawStaticWave() {
     ctx.clearRect(0,0,w,h);
     ctx.fillStyle = '#f0f3f5'; ctx.fillRect(0,0,w,h);
     if (!originalBuffer) return;
-
     const data = originalBuffer.getChannelData(0);
     const totalSamples = data.length;
     const dur  = originalBuffer.duration;
     const s    = parseFloat(UI.tStart.value);
     const e    = parseFloat(UI.tEnd.value);
-
     const viewStart = zoomOffset;
     const viewEnd   = zoomOffset + 1/zoomLevel;
-
     const sampleStart = Math.floor(viewStart * totalSamples);
     const sampleEnd   = Math.ceil(viewEnd * totalSamples);
     const step   = Math.max(1, Math.ceil((sampleEnd - sampleStart) / w));
-    // 性能优化：每列最多抽样 100 个点，长音频不卡死
     const stride = Math.max(1, Math.floor(step / 100));
-
     const xS = Math.round((s/dur - viewStart) * zoomLevel * w);
     const xE = Math.round((e/dur - viewStart) * zoomLevel * w);
-
     for (let i = 0; i < w; i++) {
         const idx0 = sampleStart + Math.floor(i * (sampleEnd - sampleStart) / w);
         let mn=1, mx=-1;
@@ -1145,26 +1125,18 @@ function drawStaticWave() {
         const amp = h/2;
         ctx.fillRect(i, (1+mn)*amp, 1, Math.max(1,(mx-mn)*amp));
     }
-
-    // 起/终点标记线
     if (xS >= 0 && xS <= w) { ctx.fillStyle = '#27ae60'; ctx.fillRect(xS, 0, 2, h); }
     if (xE >= 0 && xE <= w) { ctx.fillStyle = '#c0392b'; ctx.fillRect(xE, 0, 2, h); }
-
-    // 选区外灰色蒙版
     ctx.fillStyle = 'rgba(0,0,0,0.05)';
     if (xS > 0) ctx.fillRect(0, 0, xS, h);
     if (xE < w) ctx.fillRect(xE, 0, w-xE, h);
-
-    // 拖拽选区实时遮罩（拖动过程中覆盖绘制）
     if (dragMode === 'select' && liveSelectStart !== null && liveSelectEnd !== null) {
         const lxS = Math.round((liveSelectStart/dur - viewStart) * zoomLevel * w);
         const lxE = Math.round((liveSelectEnd/dur   - viewStart) * zoomLevel * w);
         const lxSc = Math.max(0, lxS), lxEc = Math.min(w, lxE);
         if (lxEc > lxSc) {
-            // 半透明蓝色高亮
             ctx.fillStyle = 'rgba(41, 128, 185, 0.25)';
             ctx.fillRect(lxSc, 0, lxEc - lxSc, h);
-            // 左右边界线
             ctx.fillStyle = 'rgba(41, 128, 185, 0.9)';
             ctx.fillRect(lxSc, 0, 2, h);
             ctx.fillRect(lxEc - 2, 0, 2, h);
@@ -1230,13 +1202,10 @@ function detectSilence() {
     const sr        = originalBuffer.sampleRate;
     const data      = originalBuffer.getChannelData(0);
     const minFrames = Math.floor(minLenSec * sr);
-    const hop       = Math.floor(sr * 0.01); // 10ms hop
-
-    // 找出每 10ms 块的 RMS
+    const hop       = Math.floor(sr * 0.01);
     const dur = originalBuffer.duration;
     const silenceRanges = [];
     let silStart = null;
-
     for (let i=0; i<data.length; i+=hop) {
         let rms=0, actualSamples=0;
         for(let j=0;j<hop && i+j<data.length;j++) { rms+=data[i+j]*data[i+j]; actualSamples++; }
@@ -1253,10 +1222,7 @@ function detectSilence() {
         const silLen = data.length - silStart;
         if (silLen >= minFrames) silenceRanges.push([silStart/sr, dur]);
     }
-
     if (!silenceRanges.length) { alert('未检测到静音段，可尝试调低阈值或缩短最短静音时间'); return; }
-
-    // 根据静音范围推导出音频段
     const segments = [];
     let prevEnd = 0;
     for (const [sS, sE] of silenceRanges) {
@@ -1264,7 +1230,6 @@ function detectSilence() {
         prevEnd = sE;
     }
     if (dur - prevEnd > 0.1) segments.push([prevEnd, dur]);
-
     const box = el('silenceSegs');
     box.style.display = 'flex';
     box.innerHTML = `<span style="font-size:.8em;color:#888;width:100%">检测到 ${segments.length} 个音频段（点击选择）：</span>`;
@@ -1306,7 +1271,7 @@ UI.fmt.addEventListener('change', ()=>{
     UI.br.disabled=!m;
 });
 
-// ---- Export (WSOLA + 淡入淡出) ----
+// ---- Export ----
 async function renderSegmentToBlob(startSec, endSec) {
     const dur = endSec - startSec;
     if (dur <= 0) throw new Error('时长无效');
@@ -1316,8 +1281,6 @@ async function renderSegmentToBlob(startSec, endSec) {
     const isRev = UI.rev.checked;
     const tSR   = el('exportRate').value==='original' ? originalBuffer.sampleRate : parseInt(el('exportRate').value);
     const tCh   = el('exportChannels').value==='original' ? originalBuffer.numberOfChannels : parseInt(el('exportChannels').value);
-
-    // 1. 切取 + 倒放
     const f  = Math.floor(dur * originalBuffer.sampleRate);
     const sf = Math.floor(startSec * originalBuffer.sampleRate);
     const cutBuf = ctx.createBuffer(originalBuffer.numberOfChannels, f, originalBuffer.sampleRate);
@@ -1326,8 +1289,6 @@ async function renderSegmentToBlob(startSec, endSec) {
         for(let j=0;j<f;j++) n[j]=o[sf+j]||0;
         if(isRev) Array.prototype.reverse.call(n);
     }
-
-    // 2. 重采样（如需）
     let workBuf = cutBuf;
     if (tSR !== originalBuffer.sampleRate || tCh !== originalBuffer.numberOfChannels) {
         const offCtx = new OfflineAudioContext(tCh, Math.ceil(cutBuf.duration * tSR), tSR);
@@ -1335,25 +1296,17 @@ async function renderSegmentToBlob(startSec, endSec) {
         src.connect(offCtx.destination); src.start(0);
         workBuf = await offCtx.startRendering();
     }
-
-    // 3. WSOLA 时间拉伸
     setLoaderProg('WSOLA 处理中... 0%');
     const stretchedBuf = await wsolaStretchBuffer(workBuf, rate, pct => setLoaderProg(`WSOLA 处理中... ${pct}%`));
-
-    // 4. 淡入淡出
     const fadeInSamples  = UI.fadeIn.checked  ? Math.round(parseInt(UI.fadeInMs.value)  / 1000 * stretchedBuf.sampleRate) : 0;
     const fadeOutSamples = UI.fadeOut.checked ? Math.round(parseInt(UI.fadeOutMs.value) / 1000 * stretchedBuf.sampleRate) : 0;
     applyFade(stretchedBuf, fadeInSamples, fadeOutSamples);
-
-    // 5. 音量
     if (Math.abs(vol-1.0) > 0.01) {
         for (let ch=0; ch<stretchedBuf.numberOfChannels; ch++) {
             const d=stretchedBuf.getChannelData(ch);
             for(let i=0;i<d.length;i++) d[i]=Math.max(-1,Math.min(1,d[i]*vol));
         }
     }
-
-    // 6. 编码
     setLoaderProg('编码中...');
     if (el('exportFormat').value==='mp3') return bufferToMp3(stretchedBuf, parseInt(UI.br.value));
     return bufferToWave(stretchedBuf, stretchedBuf.length);
@@ -1406,7 +1359,6 @@ el('mergeFileInput').addEventListener('change', async function() {
     this.value='';
 });
 
-// 点击上传框 → 触发隐藏 input
 el('mergeUploadBox').addEventListener('click', () => el('mergeFileInput').click());
 
 async function addMergeFiles(files) {
@@ -1422,7 +1374,7 @@ async function addMergeFiles(files) {
             try {
                 setLoaderProg(`解码 ${file.name}...`);
                 const ab  = await file.arrayBuffer();
-                const buf = await ctx.decodeAudioData(ab.slice(0)); // slice(0) 确保拷贝完整
+                const buf = await ctx.decodeAudioData(ab.slice(0));
                 mergeFiles.push({
                     file, name: file.name,
                     baseName: file.name.replace(/\.[^/.]+$/,''),
@@ -1452,7 +1404,6 @@ function renderMergeList() {
     el('mergeSortHint').style.display = isEmpty ? 'none' : '';
     el('btnMerge').disabled           = mergeFiles.length < 2;
     [...list.querySelectorAll('.merge-file-item')].forEach(i=>i.remove());
-
     mergeFiles.forEach((f, idx) => {
         const item = document.createElement('div');
         item.className = 'merge-file-item'; item.draggable=true; item.dataset.idx=idx;
@@ -1520,18 +1471,12 @@ async function doMerge() {
     const mergeRateV= el('mergeRate').value;
     const gapSec    = parseFloat(el('mergeGap').value||0);
     const n         = mergeFiles.length;
-
     showLoader('正在合并...', '');
     showMergeProgress(0, `准备数据 0/${n}`);
     try {
-        // 1. 直接使用添加时已缓存的 decodedBuffer，无需再次读取文件和解码
         const buffers = mergeFiles.map(f => f.decodedBuffer);
-
-        // 2. Target params
         const targetSR = mergeRateV==='auto' ? buffers[0].sampleRate : parseInt(mergeRateV);
         const targetCh = Math.max(...buffers.map(b=>b.numberOfChannels));
-
-        // 3. Resample/normalize channels  (占进度 0~70%)
         const normBuffers=[];
         for(let i=0;i<buffers.length;i++){
             const pct = Math.round((i / n) * 70);
@@ -1542,11 +1487,7 @@ async function doMerge() {
             const src=off.createBufferSource(); src.buffer=buf; src.connect(off.destination); src.start(0);
             normBuffers.push(await off.startRendering());
         }
-
-        // 4. 生成间隔静音（如需）
         const silenceBuf = gapSec > 0 ? makeSilenceBuffer(ctx, gapSec, targetSR, targetCh) : null;
-
-        // 5. Concatenate with gaps  (占进度 70~85%)
         showMergeProgress(72, '拼接音频片段...');
         const gapFrames   = silenceBuf ? silenceBuf.length : 0;
         const totalFrames = normBuffers.reduce((s,b)=>s+b.length,0) + gapFrames * (normBuffers.length-1);
@@ -1558,20 +1499,15 @@ async function doMerge() {
                 merged.getChannelData(ch).set(src, offset);
             }
             offset+=buf.length;
-            if(silenceBuf && i<normBuffers.length-1) {
-                offset+=gapFrames;
-            }
+            if(silenceBuf && i<normBuffers.length-1) { offset+=gapFrames; }
             const pct = 72 + Math.round(((i+1) / normBuffers.length) * 13);
             showMergeProgress(pct, `拼接 ${i+1}/${normBuffers.length}`);
         });
-
-        // 6. Encode  (占进度 85~100%)
         showMergeProgress(86, `编码为 ${mergeFmt.toUpperCase()}...`);
         const blob = mergeFmt==='mp3' ? bufferToMp3(merged,mergeBr) : bufferToWave(merged,merged.length);
         showMergeProgress(100, '完成！准备下载...');
-        await new Promise(r => setTimeout(r, 300)); // 让用户看到 100%
+        await new Promise(r => setTimeout(r, 300));
         triggerDownload(blob, `${mergeFiles[0].baseName}_merged.${mergeFmt}`);
-
     } catch(e){ alert('合并失败: '+e.message); }
     finally { hideMergeProgress(); hideLoader(); }
 }
